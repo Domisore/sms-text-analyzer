@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<smses count="4">
+  <sms address="+1234567890" body="Your OTP is 123456. Valid for 5 minutes." date="1699123200000" thread_id="1" />
+  <sms address="Bank" body="Your bill is due in 3 days. Amount: $150" date="1699209600000" thread_id="2" />
+  <sms address="Spam" body="Congratulations! You won $1000! Click here to claim" date="1699296000000" thread_id="3" />
+  <sms address="Friend" body="Hey, how are you doing today?" date="1699382400000" thread_id="4" />
+</smses>
