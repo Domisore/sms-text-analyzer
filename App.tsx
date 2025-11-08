@@ -67,7 +67,7 @@ export default function App() {
                     <TouchableOpacity style={[styles.card, { borderLeftColor: '#EF4444' }]} onPress={() => Alert.alert('Expired', 'Expired 2FA messages')}>
                         <MaterialCommunityIcons name="clock-remove" size={28} color="#EF4444" />
                         <Text style={styles.cardValue}>{metrics.expired}</Text>
-                        <Text style={styles.cardTitle}>Expired</Text>
+                        <Text style={styles.cardTitle}>Expired/Overdue</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={[styles.card, { borderLeftColor: '#8B5CF6' }]} onPress={() => Alert.alert('Upcoming', 'Upcoming messages')}>
