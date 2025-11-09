@@ -26,6 +26,7 @@ import { QuickActionsModal } from './QuickActionsModal';
 import { DashboardInsights } from './DashboardInsights';
 import { LargeFileImportModal } from './LargeFileImportModal';
 import { ImportInstructionsModal } from './ImportInstructionsModal';
+import { ImportOptionsModal } from './ImportOptionsModal';
 import { UrgentMonitoringStatus } from './UrgentMonitoringStatus';
 import { db, initializeDatabase } from './database';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -58,6 +59,7 @@ export default function App() {
     sizeMB: 0,
   });
   const [importInstructionsVisible, setImportInstructionsVisible] = useState(false);
+  const [importOptionsVisible, setImportOptionsVisible] = useState(false);
 
   useEffect(() => {
     loadCounts();
@@ -115,10 +117,12 @@ export default function App() {
     }
   };
 
-  const handleImport = async () => {
+  const handleImport = () => {
     toggleMenu();
+    setImportOptionsVisible(true);
+  };
 
-    // Directly open file picker for import
+  const handleImportFile = async () => {
     try {
       setImportProgress({ visible: true, message: 'Opening file picker...', progress: 5 });
       await importSMSBackup(
@@ -399,11 +403,6 @@ export default function App() {
                   <Text style={styles.menuItemText}>Quick Actions</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.menuItem} onPress={() => { toggleMenu(); setImportInstructionsVisible(true); }}>
-                  <MaterialCommunityIcons name="book-open-variant" size={24} color="#10B981" />
-                  <Text style={styles.menuItemText}>How to Import SMS</Text>
-                </TouchableOpacity>
-
                 <TouchableOpacity style={styles.menuItem} onPress={handleImport}>
                   <MaterialCommunityIcons name="import" size={24} color="#FFF" />
                   <Text style={styles.menuItemText}>Import SMS</Text>
@@ -463,6 +462,13 @@ export default function App() {
       <ImportInstructionsModal
         visible={importInstructionsVisible}
         onClose={() => setImportInstructionsVisible(false)}
+      />
+
+      <ImportOptionsModal
+        visible={importOptionsVisible}
+        onClose={() => setImportOptionsVisible(false)}
+        onShowInstructions={() => setImportInstructionsVisible(true)}
+        onImportFile={handleImportFile}
       />
     </View>
   );
