@@ -11,7 +11,6 @@ import {
   Animated,
   Share,
   Alert,
-  PermissionsAndroid,
 } from 'react-native';
 import * as SQLite from 'expo-sqlite';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -19,21 +18,22 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { LedgerSheet } from './LedgerSheet';
 import { importSMSBackup } from './importSMS';
 import { importDeviceSMS } from './smsReader';
-import SMSTestComponent from './SMSTestComponent';
-import { ImportProgressModal } from './ImportProgressModal';
-import { StatisticsModal } from './StatisticsModal';
-import { BillTrackerModal } from './BillTrackerModal';
-import { QuickActionsModal } from './QuickActionsModal';
-import { DashboardInsights } from './DashboardInsights';
-import { LargeFileImportModal } from './LargeFileImportModal';
-import { db, initializeDatabase } from './database';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 
 const { width, height } = Dimensions.get('window');
+const db = SQLite.openDatabaseSync('textile.db');
 
-// Initialize database with all tables
-initializeDatabase();
+db.execSync(`
+  CREATE TABLE IF NOT EXISTS sms (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    body TEXT,
+    sender TEXT,
+    time INTEGER,
+    thread_id TEXT,
+    category TEXT
+  );
+`);
 
 const categories = [
   { id: 'expired', title: 'Expired OTPs', color: '#EF4444', icon: 'clock-alert-outline' },
@@ -47,27 +47,18 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const [slideAnim] = useState(new Animated.Value(-250));
-  const [importProgress, setImportProgress] = useState({ visible: false, message: '', progress: 0 });
-  const [statsVisible, setStatsVisible] = useState(false);
-  const [billsVisible, setBillsVisible] = useState(false);
-  const [quickActionsVisible, setQuickActionsVisible] = useState(false);
-  const [largeFileModal, setLargeFileModal] = useState<{ visible: boolean; uri: string; sizeMB: number }>({
-    visible: false,
-    uri: '',
-    sizeMB: 0,
-  });
 
   useEffect(() => {
     loadCounts();
   }, []);
 
   const loadCounts = () => {
-    const newCounts: Record<string, number> = {};
+    const newCounts = {};
     categories.forEach((cat) => {
       const result = db.getFirstSync(
         `SELECT COUNT(*) as count FROM sms WHERE category = ?;`,
         [cat.id]
-      ) as { count: number } | null;
+      );
       newCounts[cat.id] = result?.count || 0;
     });
     setCounts(newCounts);
@@ -83,26 +74,6 @@ export default function App() {
     }).start();
   };
 
-  const requestSmsPermission = async () => {
-    try {
-      const granted = await PermissionsAndroid.requestMultiple([
-        PermissionsAndroid.PERMISSIONS.READ_SMS,
-        PermissionsAndroid.PERMISSIONS.RECEIVE_SMS,
-      ]);
-      if (
-        granted[PermissionsAndroid.PERMISSIONS.READ_SMS] === PermissionsAndroid.RESULTS.GRANTED &&
-        granted[PermissionsAndroid.PERMISSIONS.RECEIVE_SMS] === PermissionsAndroid.RESULTS.GRANTED
-      ) {
-        return true;
-      } else {
-        return false;
-      }
-    } catch (err) {
-      console.warn(err);
-      return false;
-    }
-  };
-
   const handleImport = async () => {
     toggleMenu();
 
@@ -113,43 +84,20 @@ export default function App() {
         {
           text: 'From Device',
           onPress: async () => {
-            const hasPermission = await requestSmsPermission();
-            if (hasPermission) {
-              try {
-                setImportProgress({ visible: true, message: 'Reading device messages...', progress: 0 });
-                const count = await importDeviceSMS();
-                setImportProgress({ visible: false, message: '', progress: 0 });
-                Alert.alert('Success', `Imported ${count} messages from device.`);
-                loadCounts();
-              } catch (error) {
-                setImportProgress({ visible: false, message: '', progress: 0 });
-                Alert.alert('Error', 'Failed to import messages from device. Make sure you grant SMS permission.');
-              }
-            } else {
-              Alert.alert('Permission Denied', 'You need to grant SMS permission to import messages from the device.');
+            try {
+              const count = await importDeviceSMS();
+              Alert.alert('Success', `Imported ${count} messages from device.`);
+              loadCounts();
+            } catch (error) {
+              Alert.alert('Error', 'Failed to import messages from device. Make sure you grant SMS permission.');
             }
           }
         },
         {
           text: 'From File',
           onPress: async () => {
-            try {
-              setImportProgress({ visible: true, message: 'Opening file picker...', progress: 5 });
-              await importSMSBackup(
-                (message, progress) => {
-                  setImportProgress({ visible: true, message, progress });
-                },
-                (uri, sizeMB) => {
-                  // Large file detected - show strategy modal
-                  setImportProgress({ visible: false, message: '', progress: 0 });
-                  setLargeFileModal({ visible: true, uri, sizeMB });
-                }
-              );
-              setImportProgress({ visible: false, message: '', progress: 0 });
-              loadCounts();
-            } catch (error) {
-              setImportProgress({ visible: false, message: '', progress: 0 });
-            }
+            await importSMSBackup();
+            loadCounts();
           }
         },
         {
@@ -163,36 +111,11 @@ export default function App() {
   const handleShare = async () => {
     toggleMenu();
 
-    Alert.alert(
-      'Export SMS Data',
-      'Choose export format:',
-      [
-        {
-          text: 'CSV (Spreadsheet)',
-          onPress: () => exportAsCSV()
-        },
-        {
-          text: 'JSON (Developer)',
-          onPress: () => exportAsJSON()
-        },
-        {
-          text: 'Text Summary',
-          onPress: () => exportAsSummary()
-        },
-        {
-          text: 'Cancel',
-          style: 'cancel'
-        }
-      ]
-    );
-  };
-
-  const exportAsCSV = async () => {
     try {
-      const allMessages = db.getAllSync(`SELECT * FROM sms ORDER BY time DESC;`) as any[];
+      const allMessages = db.getAllSync(`SELECT * FROM sms ORDER BY time DESC;`);
 
       if (allMessages.length === 0) {
-        Alert.alert('No Data', 'No SMS messages to export. Import some messages first.');
+        Alert.alert('No Data', 'No SMS messages to share. Import some messages first.');
         return;
       }
 
@@ -215,79 +138,20 @@ export default function App() {
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(fileUri, {
           mimeType: 'text/csv',
-          dialogTitle: 'Share SMS Export (CSV)',
+          dialogTitle: 'Share SMS Export',
+        });
+      } else {
+        await Share.share({
+          message: `Textile SMS Export\n\nTotal Messages: ${allMessages.length
+            }\n\nCategories:\n${categories
+              .map((cat) => `${cat.title}: ${counts[cat.id] || 0}`)
+              .join('\n')}`,
+          title: 'Textile SMS Summary',
         });
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to export CSV. Please try again.');
-      console.error('CSV export error:', error);
-    }
-  };
-
-  const exportAsJSON = async () => {
-    try {
-      const allMessages = db.getAllSync(`SELECT * FROM sms ORDER BY time DESC;`) as any[];
-
-      if (allMessages.length === 0) {
-        Alert.alert('No Data', 'No SMS messages to export. Import some messages first.');
-        return;
-      }
-
-      const exportData = {
-        exportDate: new Date().toISOString(),
-        totalMessages: allMessages.length,
-        categories: categories.map(cat => ({
-          id: cat.id,
-          title: cat.title,
-          count: counts[cat.id] || 0
-        })),
-        messages: allMessages.map(msg => ({
-          category: msg.category,
-          sender: msg.sender,
-          body: msg.body,
-          timestamp: msg.time,
-          date: new Date(msg.time).toISOString(),
-          threadId: msg.thread_id
-        }))
-      };
-
-      const fileName = `textile_sms_export_${new Date().toISOString().split('T')[0]}.json`;
-      const fileUri = `${FileSystem.documentDirectory}${fileName}`;
-
-      await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(exportData, null, 2));
-
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(fileUri, {
-          mimeType: 'application/json',
-          dialogTitle: 'Share SMS Export (JSON)',
-        });
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to export JSON. Please try again.');
-      console.error('JSON export error:', error);
-    }
-  };
-
-  const exportAsSummary = async () => {
-    try {
-      const allMessages = db.getAllSync(`SELECT * FROM sms ORDER BY time DESC;`) as any[];
-
-      if (allMessages.length === 0) {
-        Alert.alert('No Data', 'No SMS messages to share. Import some messages first.');
-        return;
-      }
-
-      await Share.share({
-        message: `📱 Textile SMS Export Summary\n\n` +
-          `Total Messages: ${allMessages.length}\n\n` +
-          `Categories:\n` +
-          categories.map((cat) => `${cat.title}: ${counts[cat.id] || 0}`).join('\n') +
-          `\n\nExported on: ${new Date().toLocaleString()}`,
-        title: 'Textile SMS Summary',
-      });
-    } catch (error) {
-      Alert.alert('Error', 'Failed to share summary. Please try again.');
-      console.error('Summary share error:', error);
+      Alert.alert('Error', 'Failed to share data. Please try again.');
+      console.error('Share error:', error);
     }
   };
 
@@ -306,18 +170,9 @@ export default function App() {
   const handleSettings = () => {
     toggleMenu();
     Alert.alert(
-      '⚙️ Settings v2.4.0',
-      'Choose an option:',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: '📊 View Statistics', onPress: () => setStatsVisible(true) },
-        { text: '💰 Bill Tracker', onPress: () => setBillsVisible(true) },
-        { text: '⚡ Quick Actions', onPress: () => setQuickActionsVisible(true) },
-        { text: '� View SStatistics', onPress: () => setStatsVisible(true) },
-        { text: '� TEScT SMS PERMISSIONS', onPress: SMSTestComponent.runTest },
-        { text: '📱 Check SMS Status', onPress: SMSTestComponent.checkStatus },
-        { text: 'ℹ️ App Info', onPress: () => Alert.alert('Textile SMS v2.4.0', 'Smart SMS management with bill tracking, quick cleanup actions, and daily insights.') }
-      ]
+      'Settings',
+      'Settings panel coming soon!\n\nFeatures planned:\n• Auto-cleanup schedules\n• Custom categories\n• Export preferences\n• Theme options',
+      [{ text: 'OK' }]
     );
   };
 
@@ -373,35 +228,23 @@ export default function App() {
           <MaterialCommunityIcons name="menu" size={28} color="#FFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Textile SMS</Text>
-        <View style={styles.headerActions}>
-          <TouchableOpacity
-            onPress={() => setStatsVisible(true)}
-            style={styles.statsButton}
-          >
-            <MaterialCommunityIcons name="chart-bar" size={24} color="#F59E0B" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={async () => {
-              try {
-                const count = await importDeviceSMS();
-                Alert.alert('Synced', `Updated with ${count} messages from device.`);
-                loadCounts();
-              } catch (error) {
-                Alert.alert('Sync Failed', 'Could not sync with device messages.');
-              }
-            }}
-            style={styles.syncButton}
-          >
-            <MaterialCommunityIcons name="sync" size={24} color="#10B981" />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          onPress={async () => {
+            try {
+              const count = await importDeviceSMS();
+              Alert.alert('Synced', `Updated with ${count} messages from device.`);
+              loadCounts();
+            } catch (error) {
+              Alert.alert('Sync Failed', 'Could not sync with device messages.');
+            }
+          }}
+          style={styles.syncButton}
+        >
+          <MaterialCommunityIcons name="sync" size={24} color="#10B981" />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.dashboard}>
-        <DashboardInsights
-          onBillsPress={() => setBillsVisible(true)}
-          onQuickActionsPress={() => setQuickActionsVisible(true)}
-        />
         <Text style={styles.dashboardTitle}>Message Categories</Text>
         <FlatList
           data={categories}
@@ -426,16 +269,6 @@ export default function App() {
               </View>
 
               <View style={styles.menuItems}>
-                <TouchableOpacity style={styles.menuItem} onPress={() => { toggleMenu(); setBillsVisible(true); }}>
-                  <MaterialCommunityIcons name="receipt-text" size={24} color="#F59E0B" />
-                  <Text style={styles.menuItemText}>Bill Tracker</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.menuItem} onPress={() => { toggleMenu(); setQuickActionsVisible(true); }}>
-                  <MaterialCommunityIcons name="lightning-bolt" size={24} color="#10B981" />
-                  <Text style={styles.menuItemText}>Quick Actions</Text>
-                </TouchableOpacity>
-
                 <TouchableOpacity style={styles.menuItem} onPress={handleImport}>
                   <MaterialCommunityIcons name="import" size={24} color="#FFF" />
                   <Text style={styles.menuItemText}>Import SMS</Text>
@@ -443,7 +276,7 @@ export default function App() {
 
                 <TouchableOpacity style={styles.menuItem} onPress={handleShare}>
                   <MaterialCommunityIcons name="share-variant" size={24} color="#FFF" />
-                  <Text style={styles.menuItemText}>Export Data</Text>
+                  <Text style={styles.menuItemText}>Share</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.menuItem} onPress={handleGoPro}>
@@ -460,37 +293,6 @@ export default function App() {
           </Animated.View>
         </TouchableOpacity>
       </Modal>
-
-      <ImportProgressModal
-        visible={importProgress.visible}
-        message={importProgress.message}
-        progress={importProgress.progress}
-      />
-
-      <StatisticsModal
-        visible={statsVisible}
-        onClose={() => setStatsVisible(false)}
-      />
-
-      <BillTrackerModal
-        visible={billsVisible}
-        onClose={() => setBillsVisible(false)}
-        onUpdate={loadCounts}
-      />
-
-      <QuickActionsModal
-        visible={quickActionsVisible}
-        onClose={() => setQuickActionsVisible(false)}
-        onUpdate={loadCounts}
-      />
-
-      <LargeFileImportModal
-        visible={largeFileModal.visible}
-        fileUri={largeFileModal.uri}
-        fileSizeMB={largeFileModal.sizeMB}
-        onClose={() => setLargeFileModal({ visible: false, uri: '', sizeMB: 0 })}
-        onComplete={loadCounts}
-      />
     </View>
   );
 }
@@ -516,13 +318,6 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 20,
     fontWeight: '700',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  statsButton: {
-    padding: 4,
   },
   syncButton: {
     padding: 4,
