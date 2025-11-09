@@ -131,23 +131,25 @@ export const LargeFileImportModal: React.FC<LargeFileImportModalProps> = ({
     {
       id: 'chunked',
       title: 'Import in Chunks',
-      description: 'Process the file in small batches',
+      description: fileSizeMB > 100 ? 'Not available for files >100MB' : 'Process the file in small batches',
       icon: 'file-import',
       color: '#10B981',
       recommended: fileSizeMB < 50,
+      disabled: fileSizeMB > 100,
       pros: ['Processes entire file', 'Better memory management', 'Shows progress'],
-      cons: ['May take several minutes', 'Cannot pause/resume'],
+      cons: ['May take several minutes', 'Only works for files <100MB'],
       action: handleChunkedImport,
     },
     {
       id: 'split',
       title: 'Split into Smaller Files',
-      description: 'Create multiple smaller XML files',
+      description: fileSizeMB > 100 ? 'Not available for files >100MB' : 'Create multiple smaller XML files',
       icon: 'file-multiple',
       color: '#F59E0B',
       recommended: fileSizeMB >= 50 && fileSizeMB < 100,
+      disabled: fileSizeMB > 100,
       pros: ['Import at your own pace', 'Can pause between files', 'More reliable'],
-      cons: ['Creates multiple files', 'Manual import needed'],
+      cons: ['Creates multiple files', 'Only works for files <100MB'],
       action: handleSplitFile,
     },
     {
@@ -156,9 +158,10 @@ export const LargeFileImportModal: React.FC<LargeFileImportModalProps> = ({
       description: 'Truncate to most recent N messages',
       icon: 'content-cut',
       color: '#8B5CF6',
-      recommended: fileSizeMB >= 100,
-      pros: ['Fastest option', 'Smaller file size', 'Keeps recent data'],
-      cons: ['Loses older messages', 'Cannot recover deleted data'],
+      recommended: fileSizeMB >= 50,
+      disabled: false,
+      pros: ['Works for any file size', 'Smaller file size', 'Keeps recent data'],
+      cons: ['Loses older messages', 'May still fail for very large files'],
       action: handleTruncate,
     },
   ];
@@ -211,9 +214,11 @@ export const LargeFileImportModal: React.FC<LargeFileImportModalProps> = ({
                 style={[
                   styles.strategyCard,
                   strategy.recommended && styles.strategyCardRecommended,
+                  strategy.disabled && styles.strategyCardDisabled,
                 ]}
-                onPress={strategy.action}
-                activeOpacity={0.7}
+                onPress={strategy.disabled ? undefined : strategy.action}
+                activeOpacity={strategy.disabled ? 1 : 0.7}
+                disabled={strategy.disabled}
               >
                 {strategy.recommended && (
                   <View style={styles.recommendedBadge}>
@@ -334,6 +339,10 @@ const styles = StyleSheet.create({
   },
   strategyCardRecommended: {
     borderColor: '#10B981',
+  },
+  strategyCardDisabled: {
+    opacity: 0.5,
+    borderColor: '#4B5563',
   },
   recommendedBadge: {
     position: 'absolute',

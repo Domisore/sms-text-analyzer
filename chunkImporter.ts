@@ -24,7 +24,7 @@ interface ChunkStats {
 
 /**
  * Strategy 1: Stream-based chunking
- * Reads the file in chunks and processes SMS messages incrementally
+ * For very large files, show error instead of trying to load into memory
  */
 export const importLargeFileInChunks = async (
   fileUri: string,
@@ -36,12 +36,33 @@ export const importLargeFileInChunks = async (
     logger.info('Starting chunked import');
     onProgress?.('Analyzing file...', 5, getEmptyStats());
 
-    // Read the entire file (we need to for XML parsing)
-    const fileContent = await FileSystem.readAsStringAsync(fileUri);
-    const fileSizeMB = fileContent.length / (1024 * 1024);
+    // Check file size first
+    const fileInfo = await FileSystem.getInfoAsync(fileUri);
+    if (!fileInfo.exists || !('size' in fileInfo)) {
+      throw new Error('File not found');
+    }
 
+    const fileSizeMB = fileInfo.size / (1024 * 1024);
     logger.info(`File size: ${fileSizeMB.toFixed(2)}MB`);
+
+    // If file is too large, don't try to read it
+    if (fileSizeMB > 100) {
+      Alert.alert(
+        'File Too Large for Chunked Import',
+        `This file is ${fileSizeMB.toFixed(0)}MB, which is too large to process in chunks.\n\n` +
+        `Please use one of these options instead:\n` +
+        `• Split into Smaller Files\n` +
+        `• Truncate to Recent Messages\n` +
+        `• Use a computer to reduce file size`,
+        [{ text: 'OK' }]
+      );
+      throw new Error('File too large for chunked import');
+    }
+
     onProgress?.(`Processing ${fileSizeMB.toFixed(1)}MB file...`, 10, getEmptyStats());
+
+    // Read the file (only if <100MB)
+    const fileContent = await FileSystem.readAsStringAsync(fileUri);
 
     // Extract SMS messages using regex (faster than full XML parsing)
     const smsMatches = extractSMSMessages(fileContent);
@@ -108,7 +129,7 @@ export const importLargeFileInChunks = async (
 
 /**
  * Strategy 2: Split file into smaller files
- * Creates multiple smaller XML files that can be imported separately
+ * For very large files, show error instead of trying to load into memory
  */
 export const splitLargeFile = async (
   fileUri: string,
@@ -116,6 +137,28 @@ export const splitLargeFile = async (
 ): Promise<string[]> => {
   try {
     logger.info('Splitting large file');
+
+    // Check file size first
+    const fileInfo = await FileSystem.getInfoAsync(fileUri);
+    if (!fileInfo.exists || !('size' in fileInfo)) {
+      throw new Error('File not found');
+    }
+
+    const fileSizeMB = fileInfo.size / (1024 * 1024);
+    
+    // If file is too large, don't try to read it
+    if (fileSizeMB > 100) {
+      Alert.alert(
+        'File Too Large to Split',
+        `This file is ${fileSizeMB.toFixed(0)}MB, which is too large to process on mobile.\n\n` +
+        `Recommendation:\n` +
+        `1. Use a computer to open the XML file\n` +
+        `2. Manually split it into smaller files\n` +
+        `3. Or use "Truncate" to keep only recent messages`,
+        [{ text: 'OK' }]
+      );
+      throw new Error('File too large to split on mobile');
+    }
 
     const fileContent = await FileSystem.readAsStringAsync(fileUri);
     const smsMatches = extractSMSMessages(fileContent);

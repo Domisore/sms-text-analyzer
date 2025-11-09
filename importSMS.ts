@@ -41,7 +41,7 @@ export const importSMSBackup = async (
     onProgress?.('Opening file picker...', 5);
     
     const result = await DocumentPicker.getDocumentAsync({
-      type: '*/*',
+      type: ['text/xml', 'application/xml'],
       copyToCacheDirectory: true,
     });
 
