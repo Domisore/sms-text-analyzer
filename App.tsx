@@ -18,7 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { LedgerSheet } from './LedgerSheet';
 import { importSMSBackup } from './importSMS';
 import { importDeviceSMS } from './smsReader';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 
 const { width, height } = Dimensions.get('window');
@@ -76,7 +76,7 @@ export default function App() {
 
   const handleImport = async () => {
     toggleMenu();
-    
+
     Alert.alert(
       'Import SMS Messages',
       'Choose how you want to import SMS messages:',
@@ -142,11 +142,10 @@ export default function App() {
         });
       } else {
         await Share.share({
-          message: `Textile SMS Export\n\nTotal Messages: ${
-            allMessages.length
-          }\n\nCategories:\n${categories
-            .map((cat) => `${cat.title}: ${counts[cat.id] || 0}`)
-            .join('\n')}`,
+          message: `Textile SMS Export\n\nTotal Messages: ${allMessages.length
+            }\n\nCategories:\n${categories
+              .map((cat) => `${cat.title}: ${counts[cat.id] || 0}`)
+              .join('\n')}`,
           title: 'Textile SMS Summary',
         });
       }
@@ -229,7 +228,7 @@ export default function App() {
           <MaterialCommunityIcons name="menu" size={28} color="#FFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Textile SMS</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={async () => {
             try {
               const count = await importDeviceSMS();
