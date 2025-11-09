@@ -26,6 +26,7 @@ import { QuickActionsModal } from './QuickActionsModal';
 import { DashboardInsights } from './DashboardInsights';
 import { LargeFileImportModal } from './LargeFileImportModal';
 import { ImportInstructionsModal } from './ImportInstructionsModal';
+import { UrgentMonitoringStatus } from './UrgentMonitoringStatus';
 import { db, initializeDatabase } from './database';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -385,9 +386,12 @@ export default function App() {
       <StatusBar barStyle="light-content" backgroundColor="#111827" />
 
       <View style={styles.header}>
-        <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
-          <MaterialCommunityIcons name="menu" size={28} color="#FFF" />
-        </TouchableOpacity>
+        <View style={styles.headerLeft}>
+          <UrgentMonitoringStatus />
+          <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
+            <MaterialCommunityIcons name="menu" size={28} color="#FFF" />
+          </TouchableOpacity>
+        </View>
         <Text style={styles.headerTitle}>Textile SMS</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity
@@ -452,8 +456,8 @@ export default function App() {
                   <Text style={styles.menuItemText}>Quick Actions</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.menuItem} onPress={async () => { 
-                  toggleMenu(); 
+                <TouchableOpacity style={styles.menuItem} onPress={async () => {
+                  toggleMenu();
                   const { manualScan } = await import('./urgentMessageScanner');
                   const urgentMessages = await manualScan();
                   if (urgentMessages.length > 0) {
@@ -556,6 +560,11 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 20,
     backgroundColor: '#111827',
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   menuButton: {
     padding: 4,
