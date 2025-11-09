@@ -62,10 +62,16 @@ export const UrgentMonitoringStatus: React.FC<UrgentMonitoringStatusProps> = ({ 
   }, [isMonitoring]);
 
   const checkMonitoringStatus = async () => {
-    const monitoring = await isBackgroundTaskRegistered();
-    setIsMonitoring(monitoring);
-    if (monitoring && !lastScanTime) {
-      setLastScanTime(new Date());
+    try {
+      const monitoring = await isBackgroundTaskRegistered();
+      console.log('[MonitoringStatus] Is monitoring:', monitoring);
+      setIsMonitoring(monitoring);
+      if (monitoring && !lastScanTime) {
+        setLastScanTime(new Date());
+      }
+    } catch (error) {
+      console.error('[MonitoringStatus] Error checking status:', error);
+      setIsMonitoring(false);
     }
   };
 
@@ -121,8 +127,6 @@ export const UrgentMonitoringStatus: React.FC<UrgentMonitoringStatusProps> = ({ 
     }
   }, [isMonitoring]);
 
-  if (!isMonitoring) return null;
-
   const glowOpacity = glowAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0.3, 0.8],
@@ -131,20 +135,26 @@ export const UrgentMonitoringStatus: React.FC<UrgentMonitoringStatusProps> = ({ 
   return (
     <>
       <TouchableOpacity onPress={handlePress} style={styles.container}>
-        <Animated.View
-          style={[
-            styles.glowContainer,
-            {
-              opacity: glowOpacity,
-              transform: [{ scale: pulseAnim }],
-            },
-          ]}
-        >
-          <View style={styles.glow} />
-        </Animated.View>
-        <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-          <MaterialCommunityIcons name="lightning-bolt" size={20} color="#F59E0B" />
-        </Animated.View>
+        {isMonitoring ? (
+          <>
+            <Animated.View
+              style={[
+                styles.glowContainer,
+                {
+                  opacity: glowOpacity,
+                  transform: [{ scale: pulseAnim }],
+                },
+              ]}
+            >
+              <View style={styles.glow} />
+            </Animated.View>
+            <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+              <MaterialCommunityIcons name="lightning-bolt" size={20} color="#F59E0B" />
+            </Animated.View>
+          </>
+        ) : (
+          <MaterialCommunityIcons name="lightning-bolt-outline" size={20} color="#6B7280" />
+        )}
       </TouchableOpacity>
 
       <Modal
@@ -160,23 +170,40 @@ export const UrgentMonitoringStatus: React.FC<UrgentMonitoringStatusProps> = ({ 
         >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <View style={styles.statusIndicator}>
-                <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-                  <MaterialCommunityIcons name="lightning-bolt" size={32} color="#F59E0B" />
-                </Animated.View>
+              <View style={[styles.statusIndicator, !isMonitoring && styles.statusIndicatorInactive]}>
+                {isMonitoring ? (
+                  <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+                    <MaterialCommunityIcons name="lightning-bolt" size={32} color="#F59E0B" />
+                  </Animated.View>
+                ) : (
+                  <MaterialCommunityIcons name="lightning-bolt-outline" size={32} color="#6B7280" />
+                )}
               </View>
               <View style={styles.modalHeaderText}>
                 <Text style={styles.modalTitle}>Urgent Message Monitor</Text>
-                <Text style={styles.modalStatus}>● Active</Text>
+                <Text style={[styles.modalStatus, !isMonitoring && styles.modalStatusInactive]}>
+                  ● {isMonitoring ? 'Active' : 'Inactive'}
+                </Text>
               </View>
             </View>
 
-            <View style={styles.statusMessage}>
-              <MaterialCommunityIcons name="radar" size={20} color="#10B981" />
-              <Text style={styles.statusMessageText}>{currentMessage}</Text>
-            </View>
+            {!isMonitoring && (
+              <View style={styles.inactiveNotice}>
+                <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#F59E0B" />
+                <Text style={styles.inactiveNoticeText}>
+                  Monitoring is not enabled. Go to menu → "Scan for Urgent Messages" to enable automatic scanning.
+                </Text>
+              </View>
+            )}
 
-            <View style={styles.statsContainer}>
+            {isMonitoring && (
+              <>
+                <View style={styles.statusMessage}>
+                  <MaterialCommunityIcons name="radar" size={20} color="#10B981" />
+                  <Text style={styles.statusMessageText}>{currentMessage}</Text>
+                </View>
+
+                <View style={styles.statsContainer}>
               <View style={styles.statItem}>
                 <Text style={styles.statLabel}>Last Scan</Text>
                 <Text style={styles.statValue}>{getTimeAgo(lastScanTime)}</Text>
@@ -193,12 +220,14 @@ export const UrgentMonitoringStatus: React.FC<UrgentMonitoringStatusProps> = ({ 
               </View>
             </View>
 
-            <View style={styles.infoBox}>
-              <MaterialCommunityIcons name="information-outline" size={18} color="#10B981" />
-              <Text style={styles.infoText}>
-                Your messages are automatically scanned for urgent keywords like bills, prescriptions, and financial alerts.
-              </Text>
-            </View>
+                <View style={styles.infoBox}>
+                  <MaterialCommunityIcons name="information-outline" size={18} color="#10B981" />
+                  <Text style={styles.infoText}>
+                    Your messages are automatically scanned for urgent keywords like bills, prescriptions, and financial alerts.
+                  </Text>
+                </View>
+              </>
+            )}
 
             <View style={styles.keywordsList}>
               <Text style={styles.keywordsTitle}>Monitoring for:</Text>
@@ -291,6 +320,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  statusIndicatorInactive: {
+    backgroundColor: '#6B728020',
+  },
   modalHeaderText: {
     flex: 1,
   },
@@ -304,6 +336,23 @@ const styles = StyleSheet.create({
     color: '#10B981',
     fontSize: 14,
     fontWeight: '600',
+  },
+  modalStatusInactive: {
+    color: '#6B7280',
+  },
+  inactiveNotice: {
+    flexDirection: 'row',
+    backgroundColor: '#F59E0B20',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    gap: 12,
+  },
+  inactiveNoticeText: {
+    flex: 1,
+    color: '#F59E0B',
+    fontSize: 13,
+    lineHeight: 20,
   },
   statusMessage: {
     flexDirection: 'row',
