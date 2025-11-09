@@ -37,7 +37,8 @@
           }
         }
       ],
-      "expo-font"
+      "expo-font",
+      "./plugins/withSMSPermissions.js"
     ],
     "extra": {
       "eas": {

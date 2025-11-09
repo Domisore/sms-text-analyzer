@@ -128,7 +128,16 @@ export default function App() {
                 Alert.alert('Error', 'Failed to import messages from device. Make sure you grant SMS permission.');
               }
             } else {
-              Alert.alert('Permission Denied', 'You need to grant SMS permission to import messages from the device.');
+              Alert.alert(
+                'SMS Permission Restricted',
+                '📱 Android 12+ restricts SMS permissions for security.\n\n' +
+                '✅ SOLUTION: Use "From File" import instead:\n\n' +
+                '1. Install "SMS Backup & Restore" app\n' +
+                '2. Export your SMS as XML\n' +
+                '3. Import the file here\n\n' +
+                'This method works better and accesses ALL your messages!',
+                [{ text: 'Got It' }]
+              );
             }
           }
         },
