@@ -3,6 +3,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { XMLParser } from 'fast-xml-parser';
 import * as SQLite from 'expo-sqlite';
 import { Alert } from 'react-native';
+import { analyzeFileAndRecommend } from './chunkImporter';
 
 // Simple logger for this module
 const logger = {
@@ -31,7 +32,10 @@ try {
   logger.error('Failed to initialize database for import', error);
 }
 
-export const importSMSBackup = async (onProgress?: (message: string, progress: number) => void) => {
+export const importSMSBackup = async (
+  onProgress?: (message: string, progress: number) => void,
+  onLargeFile?: (uri: string, sizeMB: number) => void
+) => {
   try {
     logger.sms('Starting file SMS import');
     onProgress?.('Opening file picker...', 5);
@@ -54,14 +58,28 @@ export const importSMSBackup = async (onProgress?: (message: string, progress: n
     
     logger.info(`Reading SMS backup file: ${uri} (${fileSizeMB.toFixed(2)}MB)`);
     
-    // Check file size and warn user if it's large
-    if (fileSizeMB > 50) {
+    // Check file size and recommend strategy
+    if (fileSizeMB > 30) {
+      // Analyze and get recommendation
+      const analysis = await analyzeFileAndRecommend(uri);
+      
+      logger.info('Large file detected', analysis);
+      
+      // Call the large file handler if provided
+      if (onLargeFile) {
+        onLargeFile(uri, fileSizeMB);
+        return;
+      }
+      
+      // Fallback: show simple alert
       Alert.alert(
-        'Large File Warning',
-        `This file is ${fileSizeMB.toFixed(1)}MB. Large files may cause memory issues. Continue?`,
+        'Large File Detected',
+        `This file is ${fileSizeMB.toFixed(1)}MB (${analysis.estimatedMessages.toLocaleString()} messages).\n\n` +
+          `${analysis.reason}\n\n` +
+          `Continue with standard import? This may take several minutes.`,
         [
-          { text: 'Cancel', style: 'cancel', onPress: () => { return; } },
-          { text: 'Continue', onPress: () => processLargeFile(uri) }
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Continue', onPress: () => processFile(uri, onProgress) }
         ]
       );
       return;
@@ -69,12 +87,12 @@ export const importSMSBackup = async (onProgress?: (message: string, progress: n
 
     await processFile(uri, onProgress);
     
-  } catch (err) {
+  } catch (err: any) {
     logger.error('File SMS import failed', err);
     if (err.message && err.message.includes('OutOfMemoryError')) {
       Alert.alert(
         "Memory Error", 
-        "The file is too large to process. Try using a smaller backup file or split your backup into smaller chunks."
+        "The file is too large to process. Try using the chunked import or split the file into smaller parts."
       );
     } else {
       Alert.alert("Error", "Failed to import. Try again.");
@@ -221,9 +239,61 @@ const importMessages = async (messages: any[], onProgress?: (message: string, pr
 };
 
 const classify = (body: string, time: number): string => {
-  if (/\b\d{4,6}\b/.test(body) && (Date.now() - time) / 60000 > 5) return 'expired';
-  if (/due in \d+ day/i.test(body)) return 'upcoming';
-  if (/win|free|claim/i.test(body)) return 'spam';
+  const bodyLower = body.toLowerCase();
+  const ageMinutes = (Date.now() - time) / 60000;
+  
+  // Enhanced OTP detection - check if expired (>10 minutes old)
+  const otpPatterns = [
+    /\b\d{4,8}\b.*(?:otp|code|verification|verify|authenticate)/i,
+    /(?:otp|code|verification|verify|authenticate).*\b\d{4,8}\b/i,
+    /your.*(?:code|otp).*is.*\d{4,8}/i,
+    /\d{4,8}.*is your.*(?:code|otp)/i,
+  ];
+  
+  if (otpPatterns.some(pattern => pattern.test(body)) && ageMinutes > 10) {
+    return 'expired';
+  }
+  
+  // Enhanced bill detection
+  const billPatterns = [
+    /(?:bill|payment|invoice|due|amount|balance|outstanding)/i,
+    /(?:pay|paid|pending).*(?:rs|inr|usd|\$|₹).*\d+/i,
+    /due.*(?:date|on|by).*\d{1,2}[/-]\d{1,2}/i,
+    /(?:electricity|water|gas|internet|mobile|credit card).*(?:bill|payment)/i,
+    /(?:reminder|alert).*(?:payment|bill)/i,
+  ];
+  
+  if (billPatterns.some(pattern => pattern.test(body))) {
+    return 'upcoming';
+  }
+  
+  // Enhanced spam detection
+  const spamPatterns = [
+    /\b(?:win|won|winner|congratulations|claim|prize|reward|free|offer|discount)\b/i,
+    /click.*(?:here|link|now)/i,
+    /(?:limited|hurry|act now|don't miss|last chance)/i,
+    /(?:lottery|jackpot|cash prize)/i,
+    /(?:unsubscribe|stop|opt-out)/i,
+    /(?:viagra|casino|loan|debt)/i,
+  ];
+  
+  if (spamPatterns.some(pattern => pattern.test(body))) {
+    return 'spam';
+  }
+  
+  // Social/promotional patterns
+  const socialPatterns = [
+    /(?:facebook|twitter|instagram|whatsapp|telegram|linkedin)/i,
+    /(?:liked|commented|shared|mentioned|tagged)/i,
+    /(?:friend request|follow|follower)/i,
+    /(?:notification|alert).*(?:social|post|message)/i,
+  ];
+  
+  if (socialPatterns.some(pattern => pattern.test(body))) {
+    return 'social';
+  }
+  
+  // Default to social for unclassified messages
   return 'social';
 };
 

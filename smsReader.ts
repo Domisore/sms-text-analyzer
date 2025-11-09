@@ -1,6 +1,7 @@
 import { Platform, Alert, PermissionsAndroid } from 'react-native';
 import * as SQLite from 'expo-sqlite';
 import Constants from 'expo-constants';
+import DirectSMSAccess, { DirectSMSMessage } from './directSMSReader';
 
 // Simple logger for this module
 const logger = {
@@ -77,116 +78,30 @@ export const showBackupInstructions = () => {
   );
 };
 
-// Comprehensive SMS permission testing
+// Ultimate SMS permission and access testing
 export const testSMSPermissions = async () => {
   try {
-    logger.info('=== COMPREHENSIVE SMS PERMISSION TEST ===');
+    logger.info('=== ULTIMATE SMS ACCESS TEST ===');
     
-    // Test 1: Platform check
-    if (Platform.OS !== 'android') {
-      Alert.alert('Platform Error', 'SMS permissions only work on Android devices.');
-      return;
-    }
-    logger.info('✅ Platform: Android');
-    
-    // Test 2: Check current permission status
-    const hasReadSMS = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_SMS);
-    const hasReceiveSMS = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.RECEIVE_SMS);
-    const hasPhoneState = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE);
-    
-    logger.info(`📋 Current Permissions:`);
-    logger.info(`   READ_SMS: ${hasReadSMS}`);
-    logger.info(`   RECEIVE_SMS: ${hasReceiveSMS}`);
-    logger.info(`   READ_PHONE_STATE: ${hasPhoneState}`);
-    
-    // Test 3: Check if we can request permissions
-    const canRequestRead = await PermissionsAndroid.shouldShowRequestPermissionRationale(
-      PermissionsAndroid.PERMISSIONS.READ_SMS
-    );
-    logger.info(`🔄 Can request READ_SMS: ${canRequestRead}`);
-    
-    // Test 4: Show comprehensive status
-    Alert.alert(
-      '📊 SMS Permission Status',
-      `Platform: Android ✅\n\nCurrent Permissions:\n• READ_SMS: ${hasReadSMS ? '✅' : '❌'}\n• RECEIVE_SMS: ${hasReceiveSMS ? '✅' : '❌'}\n• READ_PHONE_STATE: ${hasPhoneState ? '✅' : '❌'}\n\nCan Request: ${canRequestRead ? 'Yes' : 'No'}`,
-      [
-        { text: 'OK' },
-        { text: 'Request Permission', onPress: requestSMSPermission },
-        { text: 'Show Backup Guide', onPress: showBackupInstructions }
-      ]
-    );
+    // Use the direct SMS access diagnostics
+    await DirectSMSAccess.runDiagnostics();
     
   } catch (error) {
-    logger.error('Permission test failed', error);
-    Alert.alert('Test Failed', `Permission test error: ${error.message}`);
+    logger.error('Ultimate SMS test failed', error);
+    Alert.alert('Test Failed', `SMS test error: ${error.message}`);
   }
 };
 
-// Improved SMS permission request
+// Direct SMS permission request
 export const requestSMSPermission = async (): Promise<boolean> => {
   try {
-    logger.info('🔐 Starting SMS permission request');
+    logger.info('🔐 Starting direct SMS permission request');
     
-    if (Platform.OS !== 'android') {
-      Alert.alert('Not Supported', 'SMS permissions only work on Android devices.');
-      return false;
-    }
-    
-    // Check current status first
-    const currentPermission = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_SMS);
-    if (currentPermission) {
-      Alert.alert('Already Granted', 'SMS permission is already enabled!');
-      return true;
-    }
-    
-    // Request permission with detailed explanation
-    const granted = await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.READ_SMS,
-      {
-        title: 'SMS Access Required',
-        message: 'Textile needs SMS access to:\n\n• Read your messages for categorization\n• Identify expired OTPs and spam\n• Help organize your messages\n\nYour messages stay private on your device.',
-        buttonNeutral: 'Ask Later',
-        buttonNegative: 'Deny',
-        buttonPositive: 'Allow',
-      }
-    );
-    
-    logger.info(`📝 Permission result: ${granted}`);
-    
-    switch (granted) {
-      case PermissionsAndroid.RESULTS.GRANTED:
-        Alert.alert('Success!', 'SMS permission granted! You can now import messages from your device.');
-        return true;
-        
-      case PermissionsAndroid.RESULTS.DENIED:
-        Alert.alert(
-          'Permission Denied',
-          'SMS access was denied. You can:\n\n• Use file import instead\n• Grant permission later in device settings',
-          [
-            { text: 'OK' },
-            { text: 'File Import Guide', onPress: showBackupInstructions }
-          ]
-        );
-        return false;
-        
-      case PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN:
-        Alert.alert(
-          'Permission Blocked',
-          'SMS permission was permanently blocked. To enable:\n\n1. Go to Settings > Apps > Textile\n2. Tap Permissions\n3. Enable SMS permission\n\nOr use file import instead.',
-          [
-            { text: 'OK' },
-            { text: 'File Import Guide', onPress: showBackupInstructions }
-          ]
-        );
-        return false;
-        
-      default:
-        Alert.alert('Unexpected Result', `Permission result: ${granted}`);
-        return false;
-    }
+    // Use the direct SMS access method
+    return await DirectSMSAccess.requestPermission();
     
   } catch (error) {
-    logger.error('Permission request failed', error);
+    logger.error('Direct permission request failed', error);
     Alert.alert(
       'Permission Error',
       `Failed to request SMS permission: ${error.message}\n\nTry using file import instead.`,
@@ -201,26 +116,62 @@ export const requestSMSPermission = async (): Promise<boolean> => {
 
 export const importDeviceSMS = async (): Promise<number> => {
   try {
-    logger.sms('Starting device SMS import with permission check');
+    logger.sms('Starting DIRECT device SMS import');
     
     if (!db) {
       throw new Error('Database not initialized');
     }
     
-    // First try to get permission
-    const hasPermission = await requestSMSPermission();
-    
-    if (!hasPermission) {
-      // Show sample data instead
-      Alert.alert(
-        'Using Sample Data',
-        'SMS permission not available. Importing sample data for testing.\n\nFor real SMS data, use file import.',
-        [
-          { text: 'OK' },
-          { text: 'File Import Guide', onPress: showBackupInstructions }
-        ]
-      );
+    // Try direct SMS access first
+    if (DirectSMSAccess.isAvailable()) {
+      try {
+        logger.info('Using direct SMS access');
+        
+        // Check/request permission
+        const hasPermission = await DirectSMSAccess.requestPermission();
+        
+        if (hasPermission) {
+          // Read real SMS messages
+          const directMessages = await DirectSMSAccess.readAllMessages();
+          logger.info(`Got ${directMessages.length} real SMS messages`);
+          
+          if (directMessages.length > 0) {
+            let importedCount = 0;
+            
+            directMessages.forEach((msg: DirectSMSMessage) => {
+              try {
+                const time = parseInt(msg.date);
+                const category = classifyMessage(msg.body, time);
+                
+                db.runSync(
+                  `INSERT OR REPLACE INTO sms (body, sender, time, thread_id, category) VALUES (?, ?, ?, ?, ?);`,
+                  [msg.body, msg.address, time, msg.thread_id, category]
+                );
+                importedCount++;
+              } catch (dbError) {
+                logger.error('Failed to insert real message', dbError);
+              }
+            });
+            
+            logger.sms(`Successfully imported ${importedCount} REAL SMS messages`);
+            return importedCount;
+          }
+        }
+      } catch (directError) {
+        logger.error('Direct SMS access failed', directError);
+      }
     }
+    
+    // Fallback to sample data
+    logger.info('Using sample data fallback');
+    Alert.alert(
+      'Using Sample Data',
+      'Real SMS access not available. Importing sample data for testing.\n\nFor real SMS data, use file import or check permissions.',
+      [
+        { text: 'OK' },
+        { text: 'Test SMS Access', onPress: testSMSPermissions }
+      ]
+    );
 
     const sampleMessages: SMSMessage[] = [
       {
@@ -257,9 +208,7 @@ export const importDeviceSMS = async (): Promise<number> => {
       }
     ];
 
-    logger.sms(`Importing ${sampleMessages.length} messages`);
     let importedCount = 0;
-
     sampleMessages.forEach((msg) => {
       try {
         db.runSync(
@@ -268,11 +217,11 @@ export const importDeviceSMS = async (): Promise<number> => {
         );
         importedCount++;
       } catch (dbError) {
-        logger.error('Failed to insert message', dbError);
+        logger.error('Failed to insert sample message', dbError);
       }
     });
     
-    logger.sms(`Successfully imported ${importedCount} messages to database`);
+    logger.sms(`Imported ${importedCount} sample messages to database`);
     return importedCount;
   } catch (error) {
     logger.error('Device SMS import failed', error);

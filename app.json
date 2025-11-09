@@ -3,7 +3,7 @@
     "jsEngine": "hermes",
     "name": "Textile",
     "slug": "textile",
-    "version": "2.0.0",
+    "version": "2.3.0",
     "orientation": "portrait",
 
     "userInterfaceStyle": "dark",
@@ -17,7 +17,11 @@
       "permissions": [
         "android.permission.READ_SMS",
         "android.permission.RECEIVE_SMS",
-        "android.permission.READ_PHONE_STATE"
+        "android.permission.SEND_SMS",
+        "android.permission.READ_PHONE_STATE",
+        "android.permission.WRITE_SMS",
+        "android.permission.BROADCAST_SMS",
+        "android.permission.RECEIVE_MMS"
       ]
     },
     "ios": {
