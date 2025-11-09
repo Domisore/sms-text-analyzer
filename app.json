@@ -5,15 +5,12 @@
     "slug": "textile",
     "version": "2.4.1",
     "orientation": "portrait",
-
     "userInterfaceStyle": "dark",
     "splash": {
       "backgroundColor": "#111827"
     },
     "android": {
       "package": "com.textilesms.app",
-      "compileSdkVersion": 31,
-      "targetSdkVersion": 31,
       "permissions": [
         "android.permission.READ_SMS",
         "android.permission.RECEIVE_SMS",
@@ -25,10 +22,8 @@
       ]
     },
     "ios": {
-      "bundleIdentifier": "com.textilesms.app",
-
+      "bundleIdentifier": "com.textilesms.app"
     },
-
     "plugins": [
       "expo-document-picker",
       "expo-file-system",
@@ -41,7 +36,8 @@
             "buildToolsVersion": "31.0.0"
           }
         }
-      ]
+      ],
+      "expo-font"
     ],
     "extra": {
       "eas": {
