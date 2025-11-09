@@ -28,6 +28,8 @@ import { LargeFileImportModal } from './LargeFileImportModal';
 import { ImportInstructionsModal } from './ImportInstructionsModal';
 import { ImportOptionsModal } from './ImportOptionsModal';
 import { UrgentMonitoringStatus } from './UrgentMonitoringStatus';
+import { ProModal } from './ProModal';
+import { proSystem } from './proSystem';
 import { db, initializeDatabase } from './database';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -60,16 +62,24 @@ export default function App() {
   });
   const [importInstructionsVisible, setImportInstructionsVisible] = useState(false);
   const [importOptionsVisible, setImportOptionsVisible] = useState(false);
+  const [proModalVisible, setProModalVisible] = useState(false);
+  const [isPro, setIsPro] = useState(false);
 
   useEffect(() => {
     loadCounts();
     checkUrgentAlertStatus();
+    initializeProSystem();
   }, []);
 
   const checkUrgentAlertStatus = async () => {
     const { isBackgroundTaskRegistered } = await import('./urgentMessageScanner');
     const isEnabled = await isBackgroundTaskRegistered();
     // Store status if needed for UI updates
+  };
+
+  const initializeProSystem = async () => {
+    await proSystem.initialize();
+    setIsPro(proSystem.isPro());
   };
 
   const loadCounts = () => {
@@ -274,14 +284,7 @@ export default function App() {
 
   const handleGoPro = () => {
     toggleMenu();
-    Alert.alert(
-      'Go Pro',
-      'Upgrade to Textile SMS Pro for:\n\n• Advanced filtering options\n• Custom categories\n• Bulk operations\n• Cloud backup\n• Priority support',
-      [
-        { text: 'Maybe Later', style: 'cancel' },
-        { text: 'Learn More', onPress: () => console.log('Go Pro pressed') },
-      ]
-    );
+    setProModalVisible(true);
   };
 
   const handleSettings = () => {
@@ -415,7 +418,7 @@ export default function App() {
 
                 <TouchableOpacity style={styles.menuItem} onPress={handleGoPro}>
                   <MaterialCommunityIcons name="crown" size={24} color="#F59E0B" />
-                  <Text style={styles.menuItemText}>Go Pro</Text>
+                  <Text style={styles.menuItemText}>{isPro ? 'Pro Member ✨' : 'Go Pro'}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.menuItem} onPress={handleSettings}>
@@ -469,6 +472,15 @@ export default function App() {
         onClose={() => setImportOptionsVisible(false)}
         onShowInstructions={() => setImportInstructionsVisible(true)}
         onImportFile={handleImportFile}
+      />
+
+      <ProModal
+        visible={proModalVisible}
+        onClose={() => setProModalVisible(false)}
+        onProUnlocked={() => {
+          setIsPro(true);
+          loadCounts(); // Refresh to show pro features
+        }}
       />
     </View>
   );

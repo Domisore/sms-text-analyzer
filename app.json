@@ -38,7 +38,8 @@
         }
       ],
       "expo-font",
-      "./plugins/withSMSPermissions.js"
+      "./plugins/withSMSPermissions.js",
+      "react-native-iap"
     ],
     "extra": {
       "eas": {
