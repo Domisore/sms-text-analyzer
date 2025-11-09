@@ -159,25 +159,64 @@ export const splitLargeFile = async (
 
 /**
  * Strategy 3: Truncate file to specific size
- * Keeps only the most recent N messages
+ * For very large files, we can't load them into memory at all
+ * Instead, we'll show an error and recommend using external tools
  */
 export const truncateFile = async (
   fileUri: string,
   maxMessages: number = 10000
 ): Promise<string> => {
   try {
-    logger.info(`Truncating file to ${maxMessages} messages`);
+    logger.info(`Attempting to truncate file to ${maxMessages} messages`);
 
+    // Check file size first
+    const fileInfo = await FileSystem.getInfoAsync(fileUri);
+    if (!fileInfo.exists || !('size' in fileInfo)) {
+      throw new Error('File not found');
+    }
+
+    const fileSizeMB = fileInfo.size / (1024 * 1024);
+    
+    // If file is too large (>200MB), don't even try to read it
+    if (fileSizeMB > 200) {
+      Alert.alert(
+        'File Too Large',
+        `This file is ${fileSizeMB.toFixed(0)}MB, which is too large to process on mobile.\n\n` +
+        `Recommendation:\n` +
+        `1. Use a computer to open the XML file\n` +
+        `2. Use a text editor to keep only recent messages\n` +
+        `3. Save as a smaller file\n` +
+        `4. Transfer back to phone and import`,
+        [{ text: 'OK' }]
+      );
+      throw new Error('File too large for mobile processing');
+    }
+
+    // For files 100-200MB, warn user
+    if (fileSizeMB > 100) {
+      Alert.alert(
+        'Large File Warning',
+        `This file is ${fileSizeMB.toFixed(0)}MB. Processing may take several minutes and could fail due to memory constraints.\n\nContinue?`,
+        [
+          { text: 'Cancel', style: 'cancel', onPress: () => { throw new Error('User cancelled'); } },
+          { text: 'Continue', onPress: () => {} }
+        ]
+      );
+    }
+
+    // Try to read and process
     const fileContent = await FileSystem.readAsStringAsync(fileUri);
     const smsMatches = extractSMSMessages(fileContent);
     const totalMessages = smsMatches.length;
+
+    logger.info(`Found ${totalMessages} messages in file`);
 
     if (totalMessages <= maxMessages) {
       Alert.alert('No Truncation Needed', `File has ${totalMessages} messages, which is within the limit.`);
       return fileUri;
     }
 
-    // Keep most recent messages (assuming they're sorted by date)
+    // Keep most recent messages
     const recentMessages = smsMatches.slice(-maxMessages);
 
     // Create new XML
@@ -199,6 +238,18 @@ export const truncateFile = async (
     return outputUri;
   } catch (error) {
     logger.error('File truncation failed', error);
+    
+    // Show helpful error message
+    Alert.alert(
+      'Truncation Failed',
+      `Unable to process this file due to its size.\n\n` +
+      `Options:\n` +
+      `1. Use "Split into Smaller Files" instead\n` +
+      `2. Use a computer to manually reduce file size\n` +
+      `3. Export a smaller date range from SMS Backup & Restore app`,
+      [{ text: 'OK' }]
+    );
+    
     throw error;
   }
 };

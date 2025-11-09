@@ -76,24 +76,27 @@ export const LargeFileImportModal: React.FC<LargeFileImportModalProps> = ({
   };
 
   const handleTruncate = () => {
+    // Adjust options based on file size
+    const options = fileSizeMB > 150 
+      ? [
+          { text: 'Cancel', style: 'cancel' as const },
+          { text: '1,000 messages', onPress: () => performTruncate(1000) },
+          { text: '2,500 messages', onPress: () => performTruncate(2500) },
+          { text: '5,000 messages', onPress: () => performTruncate(5000) },
+        ]
+      : [
+          { text: 'Cancel', style: 'cancel' as const },
+          { text: '5,000 messages', onPress: () => performTruncate(5000) },
+          { text: '10,000 messages', onPress: () => performTruncate(10000) },
+          { text: '20,000 messages', onPress: () => performTruncate(20000) },
+        ];
+
     Alert.alert(
       'Truncate File',
-      'How many recent messages do you want to keep?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: '5,000 messages',
-          onPress: () => performTruncate(5000),
-        },
-        {
-          text: '10,000 messages',
-          onPress: () => performTruncate(10000),
-        },
-        {
-          text: '20,000 messages',
-          onPress: () => performTruncate(20000),
-        },
-      ]
+      fileSizeMB > 150
+        ? `File is very large (${fileSizeMB.toFixed(0)}MB). Recommend keeping fewer messages to avoid memory issues.\n\nHow many recent messages?`
+        : 'How many recent messages do you want to keep?',
+      options
     );
   };
 
