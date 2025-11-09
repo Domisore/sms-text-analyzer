@@ -2,7 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { proSystem, PRODUCTS } from './proSystem';
-import * as RNIap from 'react-native-iap';
+
+// Safely import IAP - may not be available in Expo Go
+let RNIap: any = null;
+try {
+  RNIap = require('react-native-iap');
+} catch (error) {
+  console.log('[ProModal] IAP not available (Expo Go or dev mode)');
+}
 
 interface ProModalProps {
   visible: boolean;
@@ -13,7 +20,7 @@ interface ProModalProps {
 export const ProModal: React.FC<ProModalProps> = ({ visible, onClose, onProUnlocked }) => {
   const [isPro, setIsPro] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [products, setProducts] = useState<RNIap.Product[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [totalDonated, setTotalDonated] = useState(0);
 
   useEffect(() => {
@@ -24,8 +31,13 @@ export const ProModal: React.FC<ProModalProps> = ({ visible, onClose, onProUnloc
   }, [visible]);
 
   useEffect(() => {
+    // Only set up listeners if IAP is available
+    if (!RNIap) {
+      return;
+    }
+
     // Listen for purchase updates
-    const purchaseUpdateSubscription = RNIap.purchaseUpdatedListener(async (purchase) => {
+    const purchaseUpdateSubscription = RNIap.purchaseUpdatedListener(async (purchase: any) => {
       console.log('[ProModal] Purchase updated:', purchase.productId);
       await proSystem.handlePurchase(purchase);
       loadStatus();
@@ -46,7 +58,7 @@ export const ProModal: React.FC<ProModalProps> = ({ visible, onClose, onProUnloc
       }
     });
 
-    const purchaseErrorSubscription = RNIap.purchaseErrorListener((error) => {
+    const purchaseErrorSubscription = RNIap.purchaseErrorListener((error: any) => {
       if (error.code !== 'E_USER_CANCELLED') {
         console.error('[ProModal] Purchase error:', error);
         Alert.alert('Purchase Failed', 'Something went wrong. Please try again.');
@@ -71,18 +83,56 @@ export const ProModal: React.FC<ProModalProps> = ({ visible, onClose, onProUnloc
   };
 
   const handlePurchasePro = async () => {
+    if (!RNIap) {
+      Alert.alert(
+        'Development Mode',
+        'In-app purchases are not available in Expo Go.\n\nFor testing, use:\nproSystem.unlockProForTesting()\n\nOr build a production APK.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Unlock for Testing', 
+            onPress: async () => {
+              await proSystem.unlockProForTesting();
+              loadStatus();
+              onProUnlocked?.();
+              Alert.alert('✅ Pro Unlocked!', 'Pro features enabled for testing.');
+            }
+          }
+        ]
+      );
+      return;
+    }
+
     setLoading(true);
     await proSystem.purchasePro();
     setLoading(false);
   };
 
   const handleDonate = async (productId: string) => {
+    if (!RNIap) {
+      Alert.alert(
+        'Development Mode',
+        'Donations are not available in Expo Go. Build a production APK to test payments.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     setLoading(true);
     await proSystem.donate(productId);
     setLoading(false);
   };
 
   const handleRestore = async () => {
+    if (!RNIap) {
+      Alert.alert(
+        'Development Mode',
+        'Restore is not available in Expo Go. Build a production APK to test.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     setLoading(true);
     const restored = await proSystem.restorePurchases();
     setLoading(false);

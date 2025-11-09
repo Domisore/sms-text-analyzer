@@ -1,6 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as RNIap from 'react-native-iap';
 import { Platform } from 'react-native';
+
+// Safely import IAP - may not be available in Expo Go
+let RNIap: any = null;
+try {
+  RNIap = require('react-native-iap');
+} catch (error) {
+  console.log('[ProSystem] IAP not available (Expo Go or dev mode)');
+}
 
 // Product IDs
 export const PRODUCTS = {
@@ -36,6 +43,13 @@ class ProSystem {
       // Load saved status
       await this.loadStatus();
 
+      // Check if IAP is available
+      if (!RNIap) {
+        console.log('[ProSystem] IAP not available - running in dev mode');
+        this.initialized = true;
+        return;
+      }
+
       // Initialize IAP
       if (Platform.OS === 'android') {
         await RNIap.initConnection();
@@ -56,6 +70,7 @@ class ProSystem {
     } catch (error) {
       console.error('[ProSystem] Initialization failed:', error);
       // Continue anyway - app should work without IAP
+      this.initialized = true;
     }
   }
 
@@ -107,6 +122,11 @@ class ProSystem {
     try {
       console.log('[ProSystem] Starting Pro purchase...');
 
+      if (!RNIap) {
+        console.log('[ProSystem] IAP not available - use testing method');
+        return false;
+      }
+
       if (Platform.OS !== 'android') {
         console.log('[ProSystem] IAP only available on Android');
         return false;
@@ -137,6 +157,11 @@ class ProSystem {
     try {
       console.log('[ProSystem] Starting donation:', productId);
 
+      if (!RNIap) {
+        console.log('[ProSystem] IAP not available - use testing method');
+        return false;
+      }
+
       if (Platform.OS !== 'android') {
         console.log('[ProSystem] IAP only available on Android');
         return false;
@@ -162,7 +187,7 @@ class ProSystem {
   /**
    * Handle purchase update
    */
-  async handlePurchase(purchase: RNIap.Purchase): Promise<void> {
+  async handlePurchase(purchase: any): Promise<void> {
     try {
       console.log('[ProSystem] Processing purchase:', purchase.productId);
 
@@ -219,7 +244,7 @@ class ProSystem {
    * Verify purchase (basic client-side verification)
    * In production, verify with your backend server
    */
-  private async verifyPurchase(purchase: RNIap.Purchase): Promise<boolean> {
+  private async verifyPurchase(purchase: any): Promise<boolean> {
     try {
       // Basic checks
       if (!purchase.transactionReceipt) {
@@ -241,6 +266,11 @@ class ProSystem {
   async restorePurchases(): Promise<boolean> {
     try {
       console.log('[ProSystem] Restoring purchases...');
+
+      if (!RNIap) {
+        console.log('[ProSystem] IAP not available');
+        return false;
+      }
 
       if (Platform.OS !== 'android') {
         return false;
@@ -270,8 +300,13 @@ class ProSystem {
   /**
    * Get available products with prices
    */
-  async getProducts(): Promise<RNIap.Product[]> {
+  async getProducts(): Promise<any[]> {
     try {
+      if (!RNIap) {
+        console.log('[ProSystem] IAP not available - returning mock products');
+        return [];
+      }
+
       if (Platform.OS !== 'android') {
         return [];
       }
@@ -292,7 +327,7 @@ class ProSystem {
    */
   async cleanup(): Promise<void> {
     try {
-      if (Platform.OS === 'android') {
+      if (RNIap && Platform.OS === 'android') {
         await RNIap.endConnection();
         console.log('[ProSystem] Connection closed');
       }
