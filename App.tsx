@@ -25,6 +25,7 @@ import { BillTrackerModal } from './BillTrackerModal';
 import { QuickActionsModal } from './QuickActionsModal';
 import { DashboardInsights } from './DashboardInsights';
 import { LargeFileImportModal } from './LargeFileImportModal';
+import { ImportInstructionsModal } from './ImportInstructionsModal';
 import { db, initializeDatabase } from './database';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -55,6 +56,7 @@ export default function App() {
     uri: '',
     sizeMB: 0,
   });
+  const [importInstructionsVisible, setImportInstructionsVisible] = useState(false);
 
   useEffect(() => {
     loadCounts();
@@ -443,6 +445,11 @@ export default function App() {
                   <Text style={styles.menuItemText}>Quick Actions</Text>
                 </TouchableOpacity>
 
+                <TouchableOpacity style={styles.menuItem} onPress={() => { toggleMenu(); setImportInstructionsVisible(true); }}>
+                  <MaterialCommunityIcons name="book-open-variant" size={24} color="#10B981" />
+                  <Text style={styles.menuItemText}>How to Import SMS</Text>
+                </TouchableOpacity>
+
                 <TouchableOpacity style={styles.menuItem} onPress={handleImport}>
                   <MaterialCommunityIcons name="import" size={24} color="#FFF" />
                   <Text style={styles.menuItemText}>Import SMS</Text>
@@ -497,6 +504,11 @@ export default function App() {
         fileSizeMB={largeFileModal.sizeMB}
         onClose={() => setLargeFileModal({ visible: false, uri: '', sizeMB: 0 })}
         onComplete={loadCounts}
+      />
+
+      <ImportInstructionsModal
+        visible={importInstructionsVisible}
+        onClose={() => setImportInstructionsVisible(false)}
       />
     </View>
   );
