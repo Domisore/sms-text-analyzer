@@ -5,17 +5,14 @@
     "slug": "textile",
     "version": "2.0.0",
     "orientation": "portrait",
-    "icon": "./assets/appicons/playstore.png",
+
     "userInterfaceStyle": "dark",
     "splash": {
       "backgroundColor": "#111827"
     },
     "android": {
       "package": "com.textilesms.app",
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/appicons/playstore.png",
-        "backgroundColor": "#111827"
-      },
+
       "permissions": [
         "android.permission.READ_SMS",
         "android.permission.RECEIVE_SMS"
@@ -23,16 +20,17 @@
     },
     "ios": {
       "bundleIdentifier": "com.textilesms.app",
-      "icon": "./assets/appicons/appstore.png"
+
     },
-    "web": {
-      "favicon": "./assets/appicons/playstore.png"
-    },
+
     "plugins": [
-      "expo-notifications",
       "expo-document-picker",
-      "expo-file-system",
-      "expo-build-properties"
-    ]
+      "expo-file-system"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "a34d186d-ecbe-4d6e-8570-12dce188ad34"
+      }
+    }
   }
 }

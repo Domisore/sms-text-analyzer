@@ -18,7 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { LedgerSheet } from './LedgerSheet';
 import { importSMSBackup } from './importSMS';
 import { importDeviceSMS } from './smsReader';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 
 const { width, height } = Dimensions.get('window');
