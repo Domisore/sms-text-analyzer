@@ -60,7 +60,14 @@ export default function App() {
 
   useEffect(() => {
     loadCounts();
+    checkUrgentAlertStatus();
   }, []);
+
+  const checkUrgentAlertStatus = async () => {
+    const { isBackgroundTaskRegistered } = await import('./urgentMessageScanner');
+    const isEnabled = await isBackgroundTaskRegistered();
+    // Store status if needed for UI updates
+  };
 
   const loadCounts = () => {
     const newCounts: Record<string, number> = {};
@@ -443,6 +450,28 @@ export default function App() {
                 <TouchableOpacity style={styles.menuItem} onPress={() => { toggleMenu(); setQuickActionsVisible(true); }}>
                   <MaterialCommunityIcons name="lightning-bolt" size={24} color="#10B981" />
                   <Text style={styles.menuItemText}>Quick Actions</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.menuItem} onPress={async () => { 
+                  toggleMenu(); 
+                  const { manualScan } = await import('./urgentMessageScanner');
+                  const urgentMessages = await manualScan();
+                  if (urgentMessages.length > 0) {
+                    Alert.alert(
+                      '🚨 Urgent Messages Found',
+                      `Found ${urgentMessages.length} urgent message${urgentMessages.length > 1 ? 's' : ''} requiring attention!`,
+                      [{ text: 'OK' }]
+                    );
+                  } else {
+                    Alert.alert(
+                      '✅ All Clear',
+                      'No urgent messages found in your recent messages.',
+                      [{ text: 'OK' }]
+                    );
+                  }
+                }}>
+                  <MaterialCommunityIcons name="bell-alert" size={24} color="#F59E0B" />
+                  <Text style={styles.menuItemText}>Scan for Urgent Messages</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.menuItem} onPress={() => { toggleMenu(); setImportInstructionsVisible(true); }}>

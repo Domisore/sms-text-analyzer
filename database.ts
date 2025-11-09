@@ -12,9 +12,17 @@ export const initializeDatabase = () => {
       sender TEXT,
       time INTEGER,
       thread_id TEXT,
-      category TEXT
+      category TEXT,
+      notified INTEGER DEFAULT 0
     );
   `);
+  
+  // Add notified column to existing tables (migration)
+  try {
+    db.execSync(`ALTER TABLE sms ADD COLUMN notified INTEGER DEFAULT 0;`);
+  } catch (e) {
+    // Column already exists, ignore error
+  }
 
   // Bill tracking table
   db.execSync(`

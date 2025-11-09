@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, Modal, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { notificationListener } from './NotificationListenerModule';
+import {
+  requestNotificationPermissions,
+  registerBackgroundTask,
+  isBackgroundTaskRegistered,
+  manualScan,
+} from './urgentMessageScanner';
 
 interface NotificationSetupModalProps {
   visible: boolean;
@@ -14,6 +19,7 @@ export const NotificationSetupModal: React.FC<NotificationSetupModalProps> = ({
 }) => {
   const [isEnabled, setIsEnabled] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [scanning, setScanning] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -23,15 +29,66 @@ export const NotificationSetupModal: React.FC<NotificationSetupModalProps> = ({
 
   const checkStatus = async () => {
     setChecking(true);
-    const enabled = await notificationListener.isEnabled();
-    setIsEnabled(enabled);
+    const taskRegistered = await isBackgroundTaskRegistered();
+    setIsEnabled(taskRegistered);
     setChecking(false);
   };
 
   const handleEnable = async () => {
-    await notificationListener.openSettings();
-    // Check again after a delay (user might have enabled it)
-    setTimeout(checkStatus, 1000);
+    setChecking(true);
+    
+    // Request notification permissions
+    const hasPermission = await requestNotificationPermissions();
+    
+    if (!hasPermission) {
+      Alert.alert(
+        'Permission Required',
+        'Please grant notification permissions to receive urgent message alerts.',
+        [{ text: 'OK' }]
+      );
+      setChecking(false);
+      return;
+    }
+    
+    // Register background task
+    const registered = await registerBackgroundTask();
+    
+    if (registered) {
+      setIsEnabled(true);
+      Alert.alert(
+        'Success!',
+        'Urgent message alerts enabled. You\'ll be notified every 12 hours about bills, prescriptions, and other urgent messages.',
+        [{ text: 'Great!' }]
+      );
+    } else {
+      Alert.alert(
+        'Setup Failed',
+        'Could not enable background scanning. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
+    
+    setChecking(false);
+  };
+
+  const handleManualScan = async () => {
+    setScanning(true);
+    const urgentMessages = await manualScan();
+    setScanning(false);
+    
+    if (urgentMessages.length > 0) {
+      Alert.alert(
+        '🚨 Urgent Messages Found',
+        `Found ${urgentMessages.length} urgent message${urgentMessages.length > 1 ? 's' : ''} requiring attention!`,
+        [{ text: 'OK' }]
+      );
+    } else {
+      Alert.alert(
+        '✅ All Clear',
+        'No urgent messages found in your recent messages.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   return (
@@ -54,12 +111,16 @@ export const NotificationSetupModal: React.FC<NotificationSetupModalProps> = ({
             ) : isEnabled ? (
               <View style={styles.successContainer}>
                 <MaterialCommunityIcons name="check-circle" size={64} color="#10B981" />
-                <Text style={styles.successTitle}>✅ Real-Time Alerts Enabled!</Text>
+                <Text style={styles.successTitle}>✅ Urgent Alerts Enabled!</Text>
                 <Text style={styles.successText}>
-                  You'll receive instant notifications for urgent messages like bills, prescriptions, and financial alerts.
+                  Your messages will be scanned every 12 hours for urgent items like bills, prescriptions, and financial alerts.
                 </Text>
                 
                 <View style={styles.featureList}>
+                  <View style={styles.featureItem}>
+                    <MaterialCommunityIcons name="clock-check" size={20} color="#10B981" />
+                    <Text style={styles.featureText}>Automatic scanning every 12 hours</Text>
+                  </View>
                   <View style={styles.featureItem}>
                     <MaterialCommunityIcons name="alert-circle" size={20} color="#F59E0B" />
                     <Text style={styles.featureText}>Bill payment reminders</Text>
@@ -74,6 +135,21 @@ export const NotificationSetupModal: React.FC<NotificationSetupModalProps> = ({
                   </View>
                 </View>
 
+                <TouchableOpacity 
+                  style={styles.scanButton} 
+                  onPress={handleManualScan}
+                  disabled={scanning}
+                >
+                  <MaterialCommunityIcons 
+                    name={scanning ? "loading" : "magnify-scan"} 
+                    size={20} 
+                    color="#FFF" 
+                  />
+                  <Text style={styles.scanButtonText}>
+                    {scanning ? 'Scanning...' : 'Scan Now for Urgent Messages'}
+                  </Text>
+                </TouchableOpacity>
+
                 <TouchableOpacity style={styles.doneButton} onPress={onClose}>
                   <Text style={styles.doneButtonText}>Done</Text>
                 </TouchableOpacity>
@@ -81,9 +157,9 @@ export const NotificationSetupModal: React.FC<NotificationSetupModalProps> = ({
             ) : (
               <View style={styles.setupContainer}>
                 <MaterialCommunityIcons name="bell-alert" size={64} color="#F59E0B" />
-                <Text style={styles.setupTitle}>Get Instant Alerts for Urgent Messages</Text>
+                <Text style={styles.setupTitle}>Get Alerts for Urgent Messages</Text>
                 <Text style={styles.setupDescription}>
-                  Enable real-time notifications to never miss important messages like:
+                  Enable automatic scanning to never miss important messages like:
                 </Text>
 
                 <View style={styles.benefitsList}>
@@ -121,41 +197,51 @@ export const NotificationSetupModal: React.FC<NotificationSetupModalProps> = ({
                 <View style={styles.infoBox}>
                   <MaterialCommunityIcons name="shield-check" size={20} color="#10B981" />
                   <Text style={styles.infoText}>
-                    Your privacy is protected. We only monitor for urgent keywords. All processing happens on your device.
+                    Your privacy is protected. Messages are scanned every 12 hours for urgent keywords. All processing happens on your device.
                   </Text>
                 </View>
 
                 <View style={styles.stepsContainer}>
-                  <Text style={styles.stepsTitle}>How to Enable:</Text>
+                  <Text style={styles.stepsTitle}>How It Works:</Text>
                   <View style={styles.step}>
                     <View style={styles.stepNumber}>
                       <Text style={styles.stepNumberText}>1</Text>
                     </View>
-                    <Text style={styles.stepText}>Tap "Enable Notifications" below</Text>
+                    <Text style={styles.stepText}>Tap "Enable Alerts" below</Text>
                   </View>
                   <View style={styles.step}>
                     <View style={styles.stepNumber}>
                       <Text style={styles.stepNumberText}>2</Text>
                     </View>
-                    <Text style={styles.stepText}>Find "Textile SMS" in the list</Text>
+                    <Text style={styles.stepText}>Grant notification permissions</Text>
                   </View>
                   <View style={styles.step}>
                     <View style={styles.stepNumber}>
                       <Text style={styles.stepNumberText}>3</Text>
                     </View>
-                    <Text style={styles.stepText}>Toggle it ON</Text>
+                    <Text style={styles.stepText}>Messages scanned every 12 hours automatically</Text>
                   </View>
                   <View style={styles.step}>
                     <View style={styles.stepNumber}>
                       <Text style={styles.stepNumberText}>4</Text>
                     </View>
-                    <Text style={styles.stepText}>Return to app - Done!</Text>
+                    <Text style={styles.stepText}>Get notified about urgent messages!</Text>
                   </View>
                 </View>
 
-                <TouchableOpacity style={styles.enableButton} onPress={handleEnable}>
-                  <MaterialCommunityIcons name="bell-ring" size={24} color="#FFF" />
-                  <Text style={styles.enableButtonText}>Enable Notifications</Text>
+                <TouchableOpacity 
+                  style={styles.enableButton} 
+                  onPress={handleEnable}
+                  disabled={checking}
+                >
+                  <MaterialCommunityIcons 
+                    name={checking ? "loading" : "bell-ring"} 
+                    size={24} 
+                    color="#FFF" 
+                  />
+                  <Text style={styles.enableButtonText}>
+                    {checking ? 'Setting up...' : 'Enable Alerts'}
+                  </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.skipButton} onPress={onClose}>
@@ -242,6 +328,23 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 14,
     flex: 1,
+  },
+  scanButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F59E0B',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    width: '100%',
+    gap: 8,
+    marginBottom: 12,
+  },
+  scanButtonText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
   doneButton: {
     backgroundColor: '#10B981',
