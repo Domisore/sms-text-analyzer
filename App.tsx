@@ -11,6 +11,7 @@ import {
   Animated,
   Share,
   Alert,
+  PermissionsAndroid,
 } from 'react-native';
 import * as SQLite from 'expo-sqlite';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -74,6 +75,26 @@ export default function App() {
     }).start();
   };
 
+  const requestSmsPermission = async () => {
+    try {
+      const granted = await PermissionsAndroid.requestMultiple([
+        PermissionsAndroid.PERMISSIONS.READ_SMS,
+        PermissionsAndroid.PERMISSIONS.RECEIVE_SMS,
+      ]);
+      if (
+        granted[PermissionsAndroid.PERMISSIONS.READ_SMS] === PermissionsAndroid.RESULTS.GRANTED &&
+        granted[PermissionsAndroid.PERMISSIONS.RECEIVE_SMS] === PermissionsAndroid.RESULTS.GRANTED
+      ) {
+        return true;
+      } else {
+        return false;
+      }
+    } catch (err) {
+      console.warn(err);
+      return false;
+    }
+  };
+
   const handleImport = async () => {
     toggleMenu();
 
@@ -84,12 +105,17 @@ export default function App() {
         {
           text: 'From Device',
           onPress: async () => {
-            try {
-              const count = await importDeviceSMS();
-              Alert.alert('Success', `Imported ${count} messages from device.`);
-              loadCounts();
-            } catch (error) {
-              Alert.alert('Error', 'Failed to import messages from device. Make sure you grant SMS permission.');
+            const hasPermission = await requestSmsPermission();
+            if (hasPermission) {
+              try {
+                const count = await importDeviceSMS();
+                Alert.alert('Success', `Imported ${count} messages from device.`);
+                loadCounts();
+              } catch (error) {
+                Alert.alert('Error', 'Failed to import messages from device. Make sure you grant SMS permission.');
+              }
+            } else {
+              Alert.alert('Permission Denied', 'You need to grant SMS permission to import messages from the device.');
             }
           }
         },

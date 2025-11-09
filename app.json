@@ -12,10 +12,12 @@
     },
     "android": {
       "package": "com.textilesms.app",
-
+      "compileSdkVersion": 31,
+      "targetSdkVersion": 31,
       "permissions": [
         "android.permission.READ_SMS",
-        "android.permission.RECEIVE_SMS"
+        "android.permission.RECEIVE_SMS",
+        "android.permission.READ_PHONE_STATE"
       ]
     },
     "ios": {
@@ -25,7 +27,17 @@
 
     "plugins": [
       "expo-document-picker",
-      "expo-file-system"
+      "expo-file-system",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 31,
+            "targetSdkVersion": 31,
+            "buildToolsVersion": "31.0.0"
+          }
+        }
+      ]
     ],
     "extra": {
       "eas": {
