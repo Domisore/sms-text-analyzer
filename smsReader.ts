@@ -1,7 +1,8 @@
-import { PermissionsAndroid, Platform, Alert, Linking } from 'react-native';
-import SmsAndroid from 'react-native-get-sms-android';
+import { PermissionsAndroid, Platform, Alert } from 'react-native';
 import * as SQLite from 'expo-sqlite';
-import Constants from 'expo-constants';
+
+// Note: Direct SMS reading doesn't work on Pixel 7 with Android 12+ due to system restrictions
+// File-based import is the recommended and supported method
 
 const logger = {
   info: (msg: string, data?: any) => console.log(`[TextileSMS] INFO: ${msg}`, data || ''),
@@ -93,35 +94,20 @@ export const readDeviceSMS = async (): Promise<SMSMessage[]> => {
       reject(new Error('SMS reading is only supported on Android'));
       return;
     }
-    const filter = {
-      box: 'inbox',
-      maxCount: 10000,
-    };
-    try {
-      SmsAndroid.list(
-        JSON.stringify(filter),
-        (fail: any) => {
-          logger.error('Failed to list SMS', fail);
-          reject(new Error('Failed to read SMS messages from device.'));
-        },
-        (count: number, smsList: string) => {
-          logger.info(`Found ${count} messages`);
-          const messages = JSON.parse(smsList);
-          const formattedMessages: SMSMessage[] = messages.map((message: any) => ({
-            id: message._id,
-            body: message.body,
-            sender: message.address,
-            time: message.date,
-            thread_id: message.thread_id,
-            category: classifyMessage(message.body, message.date),
-          }));
-          resolve(formattedMessages);
-        }
-      );
-    } catch (err) {
-      logger.error('Error listing SMS', err);
-      reject(err);
-    }
+    
+    // Direct SMS reading is not supported due to Android 12+ restrictions
+    // This feature is disabled - use file-based import instead
+    logger.warn('Direct SMS reading attempted but not supported on this device');
+    Alert.alert(
+      'Feature Not Available',
+      'Direct SMS reading is not supported on Android 12+ devices.\n\n' +
+      'Please use "From File" import instead:\n' +
+      '1. Export SMS using "SMS Backup & Restore" app\n' +
+      '2. Import the XML file in this app\n\n' +
+      'This method works better and accesses all your messages!',
+      [{ text: 'OK' }]
+    );
+    reject(new Error('Direct SMS reading not supported on this device. Use file import instead.'));
   });
 };
 
