@@ -322,12 +322,46 @@ export const UrgentMonitoringStatus: React.FC<UrgentMonitoringStatusProps> = ({ 
               </View>
             </View>
 
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setModalVisible(false)}
-            >
-              <Text style={styles.closeButtonText}>Got It</Text>
-            </TouchableOpacity>
+            <View style={styles.buttonContainer}>
+              {isMonitoring && (
+                <TouchableOpacity
+                  style={styles.scanNowButton}
+                  onPress={async () => {
+                    setModalVisible(false);
+                    setScanning(true);
+                    
+                    const { manualScan } = await import('./urgentMessageScanner');
+                    const urgentMessages = await manualScan();
+                    
+                    setScanning(false);
+                    
+                    if (urgentMessages.length > 0) {
+                      Alert.alert(
+                        '🚨 Urgent Messages Found',
+                        `Found ${urgentMessages.length} urgent message${urgentMessages.length > 1 ? 's' : ''} requiring attention!`,
+                        [{ text: 'OK' }]
+                      );
+                    } else {
+                      Alert.alert(
+                        '✅ All Clear',
+                        'No urgent messages found in your recent messages.',
+                        [{ text: 'OK' }]
+                      );
+                    }
+                  }}
+                >
+                  <MaterialCommunityIcons name="magnify-scan" size={20} color="#FFF" />
+                  <Text style={styles.scanNowButtonText}>Scan Now</Text>
+                </TouchableOpacity>
+              )}
+              
+              <TouchableOpacity
+                style={[styles.closeButton, isMonitoring && styles.closeButtonSecondary]}
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={styles.closeButtonText}>{isMonitoring ? 'Close' : 'Got It'}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -518,11 +552,34 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
   },
+  buttonContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  scanNowButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F59E0B',
+    borderRadius: 12,
+    paddingVertical: 14,
+    gap: 8,
+  },
+  scanNowButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
   closeButton: {
+    flex: 1,
     backgroundColor: '#10B981',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
+  },
+  closeButtonSecondary: {
+    backgroundColor: '#374151',
   },
   closeButtonText: {
     color: '#FFF',

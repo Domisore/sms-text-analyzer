@@ -118,66 +118,23 @@ export default function App() {
   const handleImport = async () => {
     toggleMenu();
 
-    Alert.alert(
-      'Import SMS Messages',
-      'Choose how you want to import SMS messages:',
-      [
-        {
-          text: 'From Device',
-          onPress: async () => {
-            const hasPermission = await requestSmsPermission();
-            if (hasPermission) {
-              try {
-                setImportProgress({ visible: true, message: 'Reading device messages...', progress: 0 });
-                const count = await importDeviceSMS();
-                setImportProgress({ visible: false, message: '', progress: 0 });
-                Alert.alert('Success', `Imported ${count} messages from device.`);
-                loadCounts();
-              } catch (error) {
-                setImportProgress({ visible: false, message: '', progress: 0 });
-                Alert.alert('Error', 'Failed to import messages from device. Make sure you grant SMS permission.');
-              }
-            } else {
-              Alert.alert(
-                'SMS Permission Restricted',
-                '📱 Android 12+ restricts SMS permissions for security.\n\n' +
-                '✅ SOLUTION: Use "From File" import instead:\n\n' +
-                '1. Install "SMS Backup & Restore" app\n' +
-                '2. Export your SMS as XML\n' +
-                '3. Import the file here\n\n' +
-                'This method works better and accesses ALL your messages!',
-                [{ text: 'Got It' }]
-              );
-            }
-          }
+    // Directly open file picker for import
+    try {
+      setImportProgress({ visible: true, message: 'Opening file picker...', progress: 5 });
+      await importSMSBackup(
+        (message, progress) => {
+          setImportProgress({ visible: true, message, progress });
         },
-        {
-          text: 'From File',
-          onPress: async () => {
-            try {
-              setImportProgress({ visible: true, message: 'Opening file picker...', progress: 5 });
-              await importSMSBackup(
-                (message, progress) => {
-                  setImportProgress({ visible: true, message, progress });
-                },
-                (uri, sizeMB) => {
-                  setImportProgress({ visible: false, message: '', progress: 0 });
-                  setLargeFileModal({ visible: true, uri, sizeMB });
-                }
-              );
-              setImportProgress({ visible: false, message: '', progress: 0 });
-              loadCounts();
-            } catch (error) {
-              setImportProgress({ visible: false, message: '', progress: 0 });
-            }
-          }
-        },
-        {
-          text: 'Cancel',
-          style: 'cancel'
+        (uri, sizeMB) => {
+          setImportProgress({ visible: false, message: '', progress: 0 });
+          setLargeFileModal({ visible: true, uri, sizeMB });
         }
-      ]
-    );
+      );
+      setImportProgress({ visible: false, message: '', progress: 0 });
+      loadCounts();
+    } catch (error) {
+      setImportProgress({ visible: false, message: '', progress: 0 });
+    }
   };
 
   const handleShare = async () => {
@@ -400,20 +357,6 @@ export default function App() {
           >
             <MaterialCommunityIcons name="chart-bar" size={24} color="#F59E0B" />
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={async () => {
-              try {
-                const count = await importDeviceSMS();
-                Alert.alert('Synced', `Updated with ${count} messages from device.`);
-                loadCounts();
-              } catch (error) {
-                Alert.alert('Sync Failed', 'Could not sync with device messages.');
-              }
-            }}
-            style={styles.syncButton}
-          >
-            <MaterialCommunityIcons name="sync" size={24} color="#10B981" />
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -454,50 +397,6 @@ export default function App() {
                 <TouchableOpacity style={styles.menuItem} onPress={() => { toggleMenu(); setQuickActionsVisible(true); }}>
                   <MaterialCommunityIcons name="lightning-bolt" size={24} color="#10B981" />
                   <Text style={styles.menuItemText}>Quick Actions</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.menuItem} onPress={async () => {
-                  toggleMenu();
-
-                  const {
-                    manualScan,
-                    requestNotificationPermissions,
-                    registerBackgroundTask,
-                    isBackgroundTaskRegistered
-                  } = await import('./urgentMessageScanner');
-
-                  // Check if monitoring is enabled, if not, enable it
-                  const isEnabled = await isBackgroundTaskRegistered();
-                  if (!isEnabled) {
-                    const hasPermission = await requestNotificationPermissions();
-                    if (hasPermission) {
-                      await registerBackgroundTask();
-                      Alert.alert(
-                        '✅ Monitoring Enabled',
-                        'Background monitoring has been enabled. Scanning now...',
-                        [{ text: 'OK' }]
-                      );
-                    }
-                  }
-
-                  // Perform the scan
-                  const urgentMessages = await manualScan();
-                  if (urgentMessages.length > 0) {
-                    Alert.alert(
-                      '🚨 Urgent Messages Found',
-                      `Found ${urgentMessages.length} urgent message${urgentMessages.length > 1 ? 's' : ''} requiring attention!`,
-                      [{ text: 'OK' }]
-                    );
-                  } else {
-                    Alert.alert(
-                      '✅ All Clear',
-                      'No urgent messages found in your recent messages.',
-                      [{ text: 'OK' }]
-                    );
-                  }
-                }}>
-                  <MaterialCommunityIcons name="bell-alert" size={24} color="#F59E0B" />
-                  <Text style={styles.menuItemText}>Scan for Urgent Messages</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.menuItem} onPress={() => { toggleMenu(); setImportInstructionsVisible(true); }}>
