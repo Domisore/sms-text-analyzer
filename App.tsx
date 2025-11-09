@@ -458,14 +458,14 @@ export default function App() {
 
                 <TouchableOpacity style={styles.menuItem} onPress={async () => {
                   toggleMenu();
-                  
-                  const { 
-                    manualScan, 
-                    requestNotificationPermissions, 
+
+                  const {
+                    manualScan,
+                    requestNotificationPermissions,
                     registerBackgroundTask,
-                    isBackgroundTaskRegistered 
+                    isBackgroundTaskRegistered
                   } = await import('./urgentMessageScanner');
-                  
+
                   // Check if monitoring is enabled, if not, enable it
                   const isEnabled = await isBackgroundTaskRegistered();
                   if (!isEnabled) {
@@ -479,7 +479,7 @@ export default function App() {
                       );
                     }
                   }
-                  
+
                   // Perform the scan
                   const urgentMessages = await manualScan();
                   if (urgentMessages.length > 0) {

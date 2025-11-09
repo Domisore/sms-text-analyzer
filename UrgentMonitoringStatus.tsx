@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, Modal, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, Modal, StyleSheet, TouchableOpacity, Animated, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { isBackgroundTaskRegistered } from './urgentMessageScanner';
 
@@ -196,12 +196,73 @@ export const UrgentMonitoringStatus: React.FC<UrgentMonitoringStatusProps> = ({ 
             </View>
 
             {!isMonitoring && (
-              <View style={styles.inactiveNotice}>
-                <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#F59E0B" />
-                <Text style={styles.inactiveNoticeText}>
-                  Monitoring is not enabled. Go to menu → "Scan for Urgent Messages" to enable automatic scanning.
-                </Text>
-              </View>
+              <>
+                <View style={styles.inactiveNotice}>
+                  <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#F59E0B" />
+                  <Text style={styles.inactiveNoticeText}>
+                    Monitoring is not enabled. Enable it now to get automatic alerts for urgent messages every 12 hours.
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.enableMonitoringButton}
+                  onPress={async () => {
+                    setModalVisible(false);
+                    
+                    const { 
+                      requestNotificationPermissions, 
+                      registerBackgroundTask,
+                      manualScan 
+                    } = await import('./urgentMessageScanner');
+                    
+                    // Request permissions
+                    const hasPermission = await requestNotificationPermissions();
+                    if (!hasPermission) {
+                      Alert.alert(
+                        'Permission Required',
+                        'Please grant notification permissions to receive urgent message alerts.',
+                        [{ text: 'OK' }]
+                      );
+                      return;
+                    }
+                    
+                    // Register background task
+                    const registered = await registerBackgroundTask();
+                    if (!registered) {
+                      Alert.alert(
+                        'Setup Failed',
+                        'Could not enable background monitoring. Please try again.',
+                        [{ text: 'OK' }]
+                      );
+                      return;
+                    }
+                    
+                    // Perform initial scan
+                    const urgentMessages = await manualScan();
+                    
+                    // Show success message
+                    if (urgentMessages.length > 0) {
+                      Alert.alert(
+                        '✅ Monitoring Enabled!',
+                        `Background monitoring is now active. Found ${urgentMessages.length} urgent message${urgentMessages.length > 1 ? 's' : ''} requiring attention!`,
+                        [{ text: 'Great!' }]
+                      );
+                    } else {
+                      Alert.alert(
+                        '✅ Monitoring Enabled!',
+                        'Background monitoring is now active. You\'ll be notified every 12 hours about urgent messages.',
+                        [{ text: 'Great!' }]
+                      );
+                    }
+                    
+                    // Refresh status
+                    checkMonitoringStatus();
+                  }}
+                >
+                  <MaterialCommunityIcons name="bell-ring" size={20} color="#FFF" />
+                  <Text style={styles.enableMonitoringButtonText}>Enable Monitoring Now</Text>
+                </TouchableOpacity>
+              </>
             )}
 
             {isMonitoring && (
@@ -361,6 +422,21 @@ const styles = StyleSheet.create({
     color: '#F59E0B',
     fontSize: 13,
     lineHeight: 20,
+  },
+  enableMonitoringButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#10B981',
+    borderRadius: 12,
+    paddingVertical: 16,
+    marginBottom: 20,
+    gap: 8,
+  },
+  enableMonitoringButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
   statusMessage: {
     flexDirection: 'row',
