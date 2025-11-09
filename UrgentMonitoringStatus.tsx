@@ -17,12 +17,20 @@ export const UrgentMonitoringStatus: React.FC<UrgentMonitoringStatusProps> = ({ 
   useEffect(() => {
     checkMonitoringStatus();
     
+    // Check status periodically
+    const statusInterval = setInterval(() => {
+      checkMonitoringStatus();
+    }, 5000); // Check every 5 seconds
+    
     // Update last scan time periodically
-    const interval = setInterval(() => {
+    const timeInterval = setInterval(() => {
       setLastScanTime(new Date());
     }, 60000); // Update every minute
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(statusInterval);
+      clearInterval(timeInterval);
+    };
   }, []);
 
   useEffect(() => {

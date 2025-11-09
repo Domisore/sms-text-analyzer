@@ -387,10 +387,10 @@ export default function App() {
 
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <UrgentMonitoringStatus />
           <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
             <MaterialCommunityIcons name="menu" size={28} color="#FFF" />
           </TouchableOpacity>
+          <UrgentMonitoringStatus />
         </View>
         <Text style={styles.headerTitle}>Textile SMS</Text>
         <View style={styles.headerActions}>
@@ -458,7 +458,29 @@ export default function App() {
 
                 <TouchableOpacity style={styles.menuItem} onPress={async () => {
                   toggleMenu();
-                  const { manualScan } = await import('./urgentMessageScanner');
+                  
+                  const { 
+                    manualScan, 
+                    requestNotificationPermissions, 
+                    registerBackgroundTask,
+                    isBackgroundTaskRegistered 
+                  } = await import('./urgentMessageScanner');
+                  
+                  // Check if monitoring is enabled, if not, enable it
+                  const isEnabled = await isBackgroundTaskRegistered();
+                  if (!isEnabled) {
+                    const hasPermission = await requestNotificationPermissions();
+                    if (hasPermission) {
+                      await registerBackgroundTask();
+                      Alert.alert(
+                        '✅ Monitoring Enabled',
+                        'Background monitoring has been enabled. Scanning now...',
+                        [{ text: 'OK' }]
+                      );
+                    }
+                  }
+                  
+                  // Perform the scan
                   const urgentMessages = await manualScan();
                   if (urgentMessages.length > 0) {
                     Alert.alert(
