@@ -5,16 +5,16 @@ import * as SQLite from 'expo-sqlite';
 // File-based import is the recommended and supported method
 
 const logger = {
-  info: (msg: string, data?: any) => console.log(`[TextileSMS] INFO: ${msg}`, data || ''),
-  error: (msg: string, err?: any) => console.error(`[TextileSMS] ERROR: ${msg}`, err || ''),
-  sms: (msg: string, data?: any) => console.log(`[TextileSMS] SMS: ${msg}`, data || ''),
-  warn: (msg: string, data?: any) => console.warn(`[TextileSMS] WARN: ${msg}`, data || ''),
+  info: (msg: string, data?: any) => console.log(`[TextBudSMS] INFO: ${msg}`, data || ''),
+  error: (msg: string, err?: any) => console.error(`[TextBudSMS] ERROR: ${msg}`, err || ''),
+  sms: (msg: string, data?: any) => console.log(`[TextBudSMS] SMS: ${msg}`, data || ''),
+  warn: (msg: string, data?: any) => console.warn(`[TextBudSMS] WARN: ${msg}`, data || ''),
 };
 
 const showManualInstructions = () => {
   Alert.alert(
     'Enable SMS Permission Manually',
-    '📱 Follow these steps:\n\n1️⃣ Open your device SETTINGS\n2️⃣ Tap APPS (or App Manager)\n3️⃣ Find and tap "Textile"\n4️⃣ Tap PERMISSIONS\n5️⃣ Enable SMS permission\n6️⃣ Return to this app\n\n✅ Then try "From Device" import again!',
+    '📱 Follow these steps:\n\n1️⃣ Open your device SETTINGS\n2️⃣ Tap APPS (or App Manager)\n3️⃣ Find and tap "TextBud"\n4️⃣ Tap PERMISSIONS\n5️⃣ Enable SMS permission\n6️⃣ Return to this app\n\n✅ Then try "From Device" import again!',
     [
       { text: 'Got It!' },
     ]

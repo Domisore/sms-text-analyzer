@@ -202,7 +202,7 @@ export default function App() {
         .join('\n');
 
       const fullCsv = csvHeader + csvContent;
-      const fileName = `textile_sms_export_${new Date().toISOString().split('T')[0]}.csv`;
+      const fileName = `textbud_sms_export_${new Date().toISOString().split('T')[0]}.csv`;
       const fileUri = `${FileSystem.documentDirectory}${fileName}`;
 
       await FileSystem.writeAsStringAsync(fileUri, fullCsv);
@@ -246,7 +246,7 @@ export default function App() {
         }))
       };
 
-      const fileName = `textile_sms_export_${new Date().toISOString().split('T')[0]}.json`;
+      const fileName = `textbud_sms_export_${new Date().toISOString().split('T')[0]}.json`;
       const fileUri = `${FileSystem.documentDirectory}${fileName}`;
 
       await FileSystem.writeAsStringAsync(fileUri, JSON.stringify(exportData, null, 2));
@@ -273,12 +273,12 @@ export default function App() {
       }
 
       await Share.share({
-        message: `📱 Textile SMS Export Summary\n\n` +
+        message: `📱 TextBud SMS Export Summary\n\n` +
           `Total Messages: ${allMessages.length}\n\n` +
           `Categories:\n` +
           categories.map((cat) => `${cat.title}: ${counts[cat.id] || 0}`).join('\n') +
           `\n\nExported on: ${new Date().toLocaleString()}`,
-        title: 'Textile SMS Summary',
+        title: 'TextBud SMS Summary',
       });
     } catch (error) {
       Alert.alert('Error', 'Failed to share summary. Please try again.');
@@ -394,7 +394,7 @@ export default function App() {
             <TouchableOpacity activeOpacity={1}>
               <View style={styles.menuHeader}>
                 <MaterialCommunityIcons name="message-text" size={32} color="#10B981" />
-                <Text style={styles.menuTitle}>Textile SMS</Text>
+                <Text style={styles.menuTitle}>TextBud</Text>
               </View>
 
               <View style={styles.menuItems}>

@@ -1,8 +1,8 @@
 {
   "expo": {
     "jsEngine": "hermes",
-    "name": "Textile",
-    "slug": "textile",
+    "name": "TextBud",
+    "slug": "textbud",
     "version": "2.4.1",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
@@ -10,7 +10,7 @@
       "backgroundColor": "#111827"
     },
     "android": {
-      "package": "com.textilesms.app",
+      "package": "com.textbud.app",
       "permissions": [
         "android.permission.READ_SMS",
         "android.permission.RECEIVE_SMS",
@@ -22,7 +22,7 @@
       ]
     },
     "ios": {
-      "bundleIdentifier": "com.textilesms.app"
+      "bundleIdentifier": "com.textbud.app"
     },
     "plugins": [
       "expo-document-picker",

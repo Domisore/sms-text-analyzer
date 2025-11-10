@@ -108,10 +108,10 @@ export const ImportInstructionsModal: React.FC<ImportInstructionsModalProps> = (
                 <View style={styles.stepNumber}>
                   <Text style={styles.stepNumberText}>3</Text>
                 </View>
-                <Text style={styles.stepTitle}>Import to Textile SMS</Text>
+                <Text style={styles.stepTitle}>Import to TextBud</Text>
               </View>
               <Text style={styles.stepDescription}>
-                Return to Textile SMS and import your backup:
+                Return to TextBud and import your backup:
               </Text>
               <View style={styles.subSteps}>
                 <View style={styles.subStep}>
@@ -141,7 +141,7 @@ export const ImportInstructionsModal: React.FC<ImportInstructionsModalProps> = (
                 <Text style={styles.stepTitle}>Enjoy Smart Categorization!</Text>
               </View>
               <Text style={styles.stepDescription}>
-                Once imported, Textile SMS will automatically categorize your messages into:
+                Once imported, TextBud will automatically categorize your messages into:
               </Text>
               <View style={styles.categoryList}>
                 <View style={styles.categoryItem}>

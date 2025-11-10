@@ -1,6 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 
-export const db = SQLite.openDatabaseSync('textile.db');
+export const db = SQLite.openDatabaseSync('textbud.db');
 
 // Initialize all tables
 export const initializeDatabase = () => {
@@ -37,7 +37,7 @@ export const initializeDatabase = () => {
     
     // If the table doesn't have UNIQUE constraint, recreate it
     if (!tableSql.includes('UNIQUE')) {
-      console.log('[TextileSMS] Migrating database to add unique constraint...');
+      console.log('[TextBudSMS] Migrating database to add unique constraint...');
       
       // Create new table with unique constraint
       db.execSync(`
@@ -63,11 +63,11 @@ export const initializeDatabase = () => {
       db.execSync(`DROP TABLE sms;`);
       db.execSync(`ALTER TABLE sms_new RENAME TO sms;`);
       
-      console.log('[TextileSMS] Database migration complete - duplicates removed');
+      console.log('[TextBudSMS] Database migration complete - duplicates removed');
     }
   } catch (e) {
     // Migration already done or error occurred, continue
-    console.log('[TextileSMS] Unique constraint migration skipped or already applied');
+    console.log('[TextBudSMS] Unique constraint migration skipped or already applied');
   }
 
   // Bill tracking table

@@ -7,9 +7,9 @@ import { db } from './database';
 
 // Simple logger for this module
 const logger = {
-  info: (msg: string, data?: any) => console.log(`[TextileSMS] INFO: ${msg}`, data || ''),
-  error: (msg: string, err?: any) => console.error(`[TextileSMS] ERROR: ${msg}`, err || ''),
-  sms: (msg: string, data?: any) => console.log(`[TextileSMS] SMS: ${msg}`, data || ''),
+  info: (msg: string, data?: any) => console.log(`[TextBudSMS] INFO: ${msg}`, data || ''),
+  error: (msg: string, err?: any) => console.error(`[TextBudSMS] ERROR: ${msg}`, err || ''),
+  sms: (msg: string, data?: any) => console.log(`[TextBudSMS] SMS: ${msg}`, data || ''),
 };
 
 export const importSMSBackup = async (
