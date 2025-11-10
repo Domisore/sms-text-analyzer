@@ -201,12 +201,30 @@ export const LargeFileImportModal: React.FC<LargeFileImportModalProps> = ({
           </View>
 
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-            <View style={styles.warningBox}>
-              <MaterialCommunityIcons name="alert-circle" size={20} color="#F59E0B" />
-              <Text style={styles.warningText}>
-                Large files may cause memory issues. Choose a strategy below for best results.
-              </Text>
-            </View>
+            {fileSizeMB > 50 ? (
+              <View style={styles.errorBox}>
+                <MaterialCommunityIcons name="alert-octagon" size={24} color="#EF4444" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.errorTitle}>File Too Large for Mobile</Text>
+                  <Text style={styles.errorText}>
+                    This file is {fileSizeMB.toFixed(0)}MB. Mobile devices have a 256MB memory limit, but your file needs {(fileSizeMB * 4).toFixed(0)}MB to process.
+                    {'\n\n'}
+                    <Text style={{ fontWeight: '700' }}>You must use a computer:</Text>
+                    {'\n'}• Open the XML file in a text editor
+                    {'\n'}• Keep only the last 5,000-10,000 messages
+                    {'\n'}• Save as a new file (under 20MB)
+                    {'\n'}• Transfer back to phone and import
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.warningBox}>
+                <MaterialCommunityIcons name="alert-circle" size={20} color="#F59E0B" />
+                <Text style={styles.warningText}>
+                  Large files may cause memory issues. Choose a strategy below for best results.
+                </Text>
+              </View>
+            )}
 
             {strategies.map((strategy) => (
               <TouchableOpacity
@@ -436,17 +454,23 @@ const styles = StyleSheet.create({
   errorBox: {
     flexDirection: 'row',
     backgroundColor: '#EF444420',
+    borderWidth: 2,
+    borderColor: '#EF4444',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    padding: 20,
+    marginBottom: 20,
     gap: 12,
   },
-  errorText: {
-    flex: 1,
+  errorTitle: {
     color: '#EF4444',
-    fontSize: 13,
-    lineHeight: 20,
-    fontWeight: '500',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  errorText: {
+    color: '#EF4444',
+    fontSize: 14,
+    lineHeight: 22,
   },
   processingContainer: {
     backgroundColor: '#1F2937',
