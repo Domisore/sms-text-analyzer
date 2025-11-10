@@ -15,7 +15,7 @@ const withSMSNotificationListener = (config) => {
     }
 
     const permissions = androidManifest.manifest['uses-permission'];
-    
+
     const addPermission = (name) => {
       const exists = permissions.some(
         (p) => p.$?.['android:name'] === name
@@ -28,6 +28,13 @@ const withSMSNotificationListener = (config) => {
     addPermission('android.permission.POST_NOTIFICATIONS');
     addPermission('android.permission.READ_SMS');
     addPermission('android.permission.RECEIVE_SMS');
+
+    // Enable large heap for processing large SMS backup files
+    // This increases memory limit from 256MB to 512MB
+    if (!mainApplication.$) {
+      mainApplication.$ = {};
+    }
+    mainApplication.$['android:largeHeap'] = 'true';
 
     // Add NotificationListenerService
     if (!mainApplication.service) {

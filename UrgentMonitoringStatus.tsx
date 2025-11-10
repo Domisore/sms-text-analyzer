@@ -11,6 +11,8 @@ export const UrgentMonitoringStatus: React.FC<UrgentMonitoringStatusProps> = ({ 
   const [isMonitoring, setIsMonitoring] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [lastScanTime, setLastScanTime] = useState<Date | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [countdown, setCountdown] = useState('');
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
 
@@ -22,16 +24,43 @@ export const UrgentMonitoringStatus: React.FC<UrgentMonitoringStatusProps> = ({ 
       checkMonitoringStatus();
     }, 5000); // Check every 5 seconds
     
-    // Update last scan time periodically
-    const timeInterval = setInterval(() => {
-      setLastScanTime(new Date());
-    }, 60000); // Update every minute
+    // Update countdown every second
+    const countdownInterval = setInterval(() => {
+      updateCountdown();
+    }, 1000); // Update every second
 
     return () => {
       clearInterval(statusInterval);
-      clearInterval(timeInterval);
+      clearInterval(countdownInterval);
     };
   }, []);
+
+  const updateCountdown = () => {
+    if (!lastScanTime) {
+      setCountdown('Soon');
+      return;
+    }
+    
+    const nextScan = new Date(lastScanTime.getTime() + 12 * 60 * 60 * 1000);
+    const now = new Date();
+    const diffMs = nextScan.getTime() - now.getTime();
+    
+    if (diffMs <= 0) {
+      setCountdown('Any moment');
+      return;
+    }
+    
+    const diffHours = Math.floor(diffMs / (60 * 60 * 1000));
+    const diffMins = Math.floor((diffMs % (60 * 60 * 1000)) / 60000);
+    
+    if (diffHours > 0) {
+      setCountdown(`${diffHours}h ${diffMins}m`);
+    } else if (diffMins > 0) {
+      setCountdown(`${diffMins}m`);
+    } else {
+      setCountdown('Any moment');
+    }
+  };
 
   useEffect(() => {
     if (isMonitoring) {
@@ -102,19 +131,7 @@ export const UrgentMonitoringStatus: React.FC<UrgentMonitoringStatusProps> = ({ 
     return `${Math.floor(diffHours / 24)}d ago`;
   };
 
-  const getNextScanTime = (): string => {
-    if (!lastScanTime) return 'Soon';
-    
-    const nextScan = new Date(lastScanTime.getTime() + 12 * 60 * 60 * 1000);
-    const now = new Date();
-    const diffMs = nextScan.getTime() - now.getTime();
-    const diffHours = Math.floor(diffMs / (60 * 60 * 1000));
-    const diffMins = Math.floor((diffMs % (60 * 60 * 1000)) / 60000);
-    
-    if (diffHours > 0) return `${diffHours}h ${diffMins}m`;
-    if (diffMins > 0) return `${diffMins}m`;
-    return 'Any moment';
-  };
+
 
   const statusMessages = [
     'Monitoring for urgent messages...',
@@ -280,7 +297,7 @@ export const UrgentMonitoringStatus: React.FC<UrgentMonitoringStatusProps> = ({ 
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
                 <Text style={styles.statLabel}>Next Scan</Text>
-                <Text style={styles.statValue}>{getNextScanTime()}</Text>
+                <Text style={styles.statValue}>{countdown}</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statItem}>

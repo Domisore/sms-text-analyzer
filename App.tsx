@@ -41,9 +41,13 @@ initializeDatabase();
 
 const categories = [
   { id: 'expired', title: 'Expired OTPs', color: '#EF4444', icon: 'clock-alert-outline' },
-  { id: 'upcoming', title: 'Upcoming Bills', color: '#F59E0B', icon: 'calendar-clock' },
+  { id: 'overdue', title: 'Overdue', color: '#DC2626', icon: 'alert-circle-outline' },
+  { id: 'upcoming', title: 'Pending', color: '#F59E0B', icon: 'calendar-clock' },
+  { id: 'medical', title: 'Medical/Health', color: '#EC4899', icon: 'medical-bag' },
+  { id: 'deliveries', title: 'Deliveries', color: '#14B8A6', icon: 'package-variant' },
   { id: 'spam', title: 'Spam Messages', color: '#8B5CF6', icon: 'shield-alert-outline' },
   { id: 'social', title: 'Social Updates', color: '#10B981', icon: 'account-group-outline' },
+  { id: 'other', title: 'Other', color: '#6B7280', icon: 'message-outline' },
 ];
 
 export default function App() {
@@ -287,17 +291,15 @@ export default function App() {
     setProModalVisible(true);
   };
 
-  const handleSettings = () => {
+  const handleReports = () => {
     toggleMenu();
     Alert.alert(
-      '⚙️ Settings v2.4.0',
-      'Choose an option:',
+      '📊 Reports',
+      'Choose a report:',
       [
         { text: 'Cancel', style: 'cancel' },
         { text: '📊 View Statistics', onPress: () => setStatsVisible(true) },
         { text: '💰 Bill Tracker', onPress: () => setBillsVisible(true) },
-        { text: '⚡ Quick Actions', onPress: () => setQuickActionsVisible(true) },
-        { text: 'ℹ️ App Info', onPress: () => Alert.alert('Textile SMS v2.4.0', 'Smart SMS management with bill tracking, quick cleanup actions, and daily insights.') }
       ]
     );
   };
@@ -356,7 +358,7 @@ export default function App() {
           </TouchableOpacity>
           <UrgentMonitoringStatus />
         </View>
-        <Text style={styles.headerTitle}>Textile SMS</Text>
+        <Text style={styles.headerTitle}>TextBud</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity
             onPress={() => setStatsVisible(true)}
@@ -396,9 +398,9 @@ export default function App() {
               </View>
 
               <View style={styles.menuItems}>
-                <TouchableOpacity style={styles.menuItem} onPress={() => { toggleMenu(); setBillsVisible(true); }}>
-                  <MaterialCommunityIcons name="receipt-text" size={24} color="#F59E0B" />
-                  <Text style={styles.menuItemText}>Bill Tracker</Text>
+                <TouchableOpacity style={styles.menuItem} onPress={handleReports}>
+                  <MaterialCommunityIcons name="chart-box-outline" size={24} color="#3B82F6" />
+                  <Text style={styles.menuItemText}>Reports</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.menuItem} onPress={() => { toggleMenu(); setQuickActionsVisible(true); }}>
@@ -419,11 +421,6 @@ export default function App() {
                 <TouchableOpacity style={styles.menuItem} onPress={handleGoPro}>
                   <MaterialCommunityIcons name="crown" size={24} color="#F59E0B" />
                   <Text style={styles.menuItemText}>{isPro ? 'Pro Member ✨' : 'Go Pro'}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.menuItem} onPress={handleSettings}>
-                  <MaterialCommunityIcons name="cog" size={24} color="#FFF" />
-                  <Text style={styles.menuItemText}>Settings</Text>
                 </TouchableOpacity>
               </View>
             </TouchableOpacity>

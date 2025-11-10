@@ -77,7 +77,7 @@ export const LargeFileImportModal: React.FC<LargeFileImportModalProps> = ({
 
   const handleTruncate = () => {
     // Adjust options based on file size
-    const options = fileSizeMB > 150 
+    const options = fileSizeMB > 80 
       ? [
           { text: 'Cancel', style: 'cancel' as const },
           { text: '1,000 messages', onPress: () => performTruncate(1000) },
@@ -93,7 +93,7 @@ export const LargeFileImportModal: React.FC<LargeFileImportModalProps> = ({
 
     Alert.alert(
       'Truncate File',
-      fileSizeMB > 150
+      fileSizeMB > 80
         ? `File is very large (${fileSizeMB.toFixed(0)}MB). Recommend keeping fewer messages to avoid memory issues.\n\nHow many recent messages?`
         : 'How many recent messages do you want to keep?',
       options
@@ -131,37 +131,37 @@ export const LargeFileImportModal: React.FC<LargeFileImportModalProps> = ({
     {
       id: 'chunked',
       title: 'Import in Chunks',
-      description: fileSizeMB > 50 ? 'Not available for files >50MB' : 'Process the file in small batches',
+      description: fileSizeMB > 100 ? 'Not available for files >100MB' : 'Process the file in small batches',
       icon: 'file-import',
       color: '#10B981',
-      recommended: fileSizeMB < 40,
-      disabled: fileSizeMB > 50,
+      recommended: fileSizeMB < 70,
+      disabled: fileSizeMB > 100,
       pros: ['Processes entire file', 'Better memory management', 'Shows progress'],
-      cons: ['May take several minutes', 'Only works for files <50MB'],
+      cons: ['May take several minutes', 'Works best for files <70MB'],
       action: handleChunkedImport,
     },
     {
       id: 'split',
       title: 'Split into Smaller Files',
-      description: fileSizeMB > 50 ? 'Not available for files >50MB' : 'Create multiple smaller XML files',
+      description: fileSizeMB > 100 ? 'Not available for files >100MB' : 'Create multiple smaller XML files',
       icon: 'file-multiple',
       color: '#F59E0B',
-      recommended: fileSizeMB >= 40 && fileSizeMB < 50,
-      disabled: fileSizeMB > 50,
-      pros: ['Import at your own pace', 'Can pause between files', 'More reliable'],
-      cons: ['Creates multiple files', 'Only works for files <50MB'],
+      recommended: fileSizeMB >= 70 && fileSizeMB <= 100,
+      disabled: fileSizeMB > 100,
+      pros: ['Import at your own pace', 'Can pause between files', 'Most reliable for large files'],
+      cons: ['Creates multiple files', 'Works for files <100MB'],
       action: handleSplitFile,
     },
     {
       id: 'truncate',
       title: 'Keep Recent Messages Only',
-      description: fileSizeMB > 50 ? 'File too large - use computer' : 'Truncate to most recent N messages',
+      description: fileSizeMB > 100 ? 'File too large - use computer' : 'Truncate to most recent N messages',
       icon: 'content-cut',
       color: '#8B5CF6',
-      recommended: fileSizeMB >= 40 && fileSizeMB <= 50,
-      disabled: fileSizeMB > 50,
-      pros: fileSizeMB > 50 ? ['Not available for files >50MB'] : ['Works for files <50MB', 'Smaller file size', 'Keeps recent data'],
-      cons: fileSizeMB > 50 ? ['Use computer to reduce file size'] : ['Loses older messages', 'May fail for files >30MB'],
+      recommended: fileSizeMB >= 70 && fileSizeMB <= 100,
+      disabled: fileSizeMB > 100,
+      pros: fileSizeMB > 100 ? ['Not available for files >100MB'] : ['Works for files <100MB', 'Smaller file size', 'Keeps recent data'],
+      cons: fileSizeMB > 100 ? ['Use computer to reduce file size'] : ['Loses older messages', 'May take time for files >65MB'],
       action: handleTruncate,
     },
   ];
@@ -201,18 +201,18 @@ export const LargeFileImportModal: React.FC<LargeFileImportModalProps> = ({
           </View>
 
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-            {fileSizeMB > 50 ? (
+            {fileSizeMB > 100 ? (
               <View style={styles.errorBox}>
                 <MaterialCommunityIcons name="alert-octagon" size={24} color="#EF4444" />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.errorTitle}>File Too Large for Mobile</Text>
                   <Text style={styles.errorText}>
-                    This file is {fileSizeMB.toFixed(0)}MB. Mobile devices have a 256MB memory limit, but your file needs {(fileSizeMB * 4).toFixed(0)}MB to process.
+                    This file is {fileSizeMB.toFixed(0)}MB. Mobile devices have a 512MB memory limit (with large heap), but your file needs {(fileSizeMB * 4).toFixed(0)}MB to process.
                     {'\n\n'}
                     <Text style={{ fontWeight: '700' }}>You must use a computer:</Text>
                     {'\n'}• Open the XML file in a text editor
                     {'\n'}• Keep only the last 5,000-10,000 messages
-                    {'\n'}• Save as a new file (under 20MB)
+                    {'\n'}• Save as a new file (under 50MB)
                     {'\n'}• Transfer back to phone and import
                   </Text>
                 </View>
@@ -221,7 +221,7 @@ export const LargeFileImportModal: React.FC<LargeFileImportModalProps> = ({
               <View style={styles.warningBox}>
                 <MaterialCommunityIcons name="alert-circle" size={20} color="#F59E0B" />
                 <Text style={styles.warningText}>
-                  Large files may cause memory issues. Choose a strategy below for best results.
+                  Large files may cause memory issues. Choose a strategy below for best results. Files 65-100MB may take several minutes.
                 </Text>
               </View>
             )}

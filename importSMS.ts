@@ -1,9 +1,9 @@
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { XMLParser } from 'fast-xml-parser';
-import * as SQLite from 'expo-sqlite';
 import { Alert } from 'react-native';
 import { analyzeFileAndRecommend } from './chunkImporter';
+import { db } from './database';
 
 // Simple logger for this module
 const logger = {
@@ -11,26 +11,6 @@ const logger = {
   error: (msg: string, err?: any) => console.error(`[TextileSMS] ERROR: ${msg}`, err || ''),
   sms: (msg: string, data?: any) => console.log(`[TextileSMS] SMS: ${msg}`, data || ''),
 };
-
-// Initialize database with error handling
-let db: SQLite.SQLiteDatabase;
-try {
-  db = SQLite.openDatabaseSync('textile.db');
-  // Ensure table exists
-  db.execSync(`
-    CREATE TABLE IF NOT EXISTS sms (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      body TEXT,
-      sender TEXT,
-      time INTEGER,
-      thread_id TEXT,
-      category TEXT
-    );
-  `);
-  logger.info('Database initialized for SMS import');
-} catch (error) {
-  logger.error('Failed to initialize database for import', error);
-}
 
 export const importSMSBackup = async (
   onProgress?: (message: string, progress: number) => void,
@@ -59,7 +39,8 @@ export const importSMSBackup = async (
     logger.info(`Reading SMS backup file: ${uri} (${fileSizeMB.toFixed(2)}MB)`);
     
     // Check file size and recommend strategy
-    if (fileSizeMB > 30) {
+    // With largeHeap enabled, we can handle files up to 65MB before showing options
+    if (fileSizeMB > 65) {
       // Analyze and get recommendation
       const analysis = await analyzeFileAndRecommend(uri);
       
@@ -92,7 +73,11 @@ export const importSMSBackup = async (
     if (err.message && err.message.includes('OutOfMemoryError')) {
       Alert.alert(
         "Memory Error", 
-        "The file is too large to process. Try using the chunked import or split the file into smaller parts."
+        "The file is too large to process in one go.\n\n" +
+        "Please try again and select one of these options:\n" +
+        "• Split into Smaller Files (recommended)\n" +
+        "• Import First/Last N Messages\n\n" +
+        "Or use a computer to reduce the file size manually."
       );
     } else {
       Alert.alert("Error", "Failed to import. Try again.");
@@ -107,8 +92,8 @@ const processFile = async (uri: string, onProgress?: (message: string, progress:
     
     onProgress?.('Parsing XML data...', 50);
     await parseAndImportXML(xml, onProgress);
-  } catch (error) {
-    if (error.message && error.message.includes('OutOfMemoryError')) {
+  } catch (error: any) {
+    if (error.message && (error.message.includes('OutOfMemoryError') || error.message.includes('memory'))) {
       throw new Error('OutOfMemoryError: File too large');
     }
     throw error;
@@ -186,12 +171,8 @@ const parseAndImportXMLInBatches = async (xml: string) => {
 
 const importMessages = async (messages: any[], onProgress?: (message: string, progress: number) => void): Promise<number> => {
   let imported = 0;
+  let duplicates = 0;
   let failed = 0;
-  
-  // Check if database is available
-  if (!db) {
-    throw new Error('Database not initialized');
-  }
   
   onProgress?.('Saving messages to database...', 80);
   
@@ -205,11 +186,21 @@ const importMessages = async (messages: any[], onProgress?: (message: string, pr
         const thread_id = msg['@_thread_id'] || null;
         const category = classify(body, time);
 
-        db.runSync(
-          `INSERT OR REPLACE INTO sms (body, sender, time, thread_id, category) VALUES (?, ?, ?, ?, ?);`,
-          [body, sender, time, thread_id, category]
+        // Check if message already exists
+        const existing = db.getFirstSync(
+          `SELECT id FROM sms WHERE sender = ? AND body = ? AND time = ?;`,
+          [sender, body, time]
         );
-        imported++;
+
+        if (existing) {
+          duplicates++;
+        } else {
+          db.runSync(
+            `INSERT INTO sms (body, sender, time, thread_id, category) VALUES (?, ?, ?, ?, ?);`,
+            [body, sender, time, thread_id, category]
+          );
+          imported++;
+        }
         
         // Update progress every 100 messages
         if (index % 100 === 0) {
@@ -229,10 +220,17 @@ const importMessages = async (messages: any[], onProgress?: (message: string, pr
     logger.sms(`Import completed with ${failed} failures`);
   }
 
-  logger.sms(`Successfully imported ${imported} messages from batch`);
+  if (duplicates > 0) {
+    logger.sms(`Skipped ${duplicates} duplicate messages`);
+  }
+
+  logger.sms(`Successfully imported ${imported} new messages from batch`);
   
   if (messages.length < 1000) { // Only show alert for single batch or final batch
-    Alert.alert("Success", `${imported} messages imported.`);
+    const message = duplicates > 0 
+      ? `${imported} new messages imported.\n${duplicates} duplicates skipped.`
+      : `${imported} messages imported.`;
+    Alert.alert("Success", message);
   }
   
   return imported;
@@ -242,25 +240,88 @@ const classify = (body: string, time: number): string => {
   const bodyLower = body.toLowerCase();
   const ageMinutes = (Date.now() - time) / 60000;
   
+  // Check for overdue payments/bills first (highest priority)
+  const overduePatterns = [
+    /overdue/i,
+    /past due/i,
+    /payment.*overdue/i,
+    /overdrawn/i,
+    /account.*overdrawn/i,
+    /balance.*below/i,
+    /negative balance/i,
+    /immediate.*payment/i,
+    /urgent.*payment/i,
+  ];
+  
+  if (overduePatterns.some(pattern => pattern.test(body))) {
+    return 'overdue';
+  }
+  
   // Enhanced OTP detection - check if expired (>10 minutes old)
   const otpPatterns = [
     /\b\d{4,8}\b.*(?:otp|code|verification|verify|authenticate)/i,
     /(?:otp|code|verification|verify|authenticate).*\b\d{4,8}\b/i,
     /your.*(?:code|otp).*is.*\d{4,8}/i,
     /\d{4,8}.*is your.*(?:code|otp)/i,
+    /verification code/i,
+    /security code/i,
   ];
   
   if (otpPatterns.some(pattern => pattern.test(body)) && ageMinutes > 10) {
     return 'expired';
   }
   
-  // Enhanced bill detection
+  // Medical/Health detection (high priority - before bills)
+  const medicalPatterns = [
+    /prescription/i,
+    /pharmacy/i,
+    /cvs.*pharmacy/i,
+    /walgreens/i,
+    /rite aid/i,
+    /medication/i,
+    /refill/i,
+    /doctor/i,
+    /appointment.*(?:doctor|clinic|hospital)/i,
+    /medical/i,
+    /health/i,
+    /lab.*results/i,
+    /test.*results/i,
+    /vaccine/i,
+    /vaccination/i,
+    /flu shot/i,
+  ];
+  
+  if (medicalPatterns.some(pattern => pattern.test(body))) {
+    return 'medical';
+  }
+
+  // Delivery/Shipping detection
+  const deliveryPatterns = [
+    /(?:package|parcel|shipment).*(?:delivered|arriving|out for delivery)/i,
+    /(?:amazon|ups|fedex|usps|dhl).*(?:delivered|delivery|shipped|tracking)/i,
+    /tracking.*number/i,
+    /out for delivery/i,
+    /delivered.*to/i,
+    /shipment.*(?:arriving|delivered)/i,
+    /order.*(?:shipped|delivered)/i,
+    /delivery.*(?:scheduled|expected|arriving)/i,
+    /your.*(?:package|order).*(?:has been|is)/i,
+  ];
+  
+  if (deliveryPatterns.some(pattern => pattern.test(body))) {
+    return 'deliveries';
+  }
+
+  // Enhanced bill/payment detection (pending payments)
   const billPatterns = [
-    /(?:bill|payment|invoice|due|amount|balance|outstanding)/i,
+    /(?:bill|payment|invoice|due|amount).*(?:rs|inr|usd|\$|₹).*\d+/i,
     /(?:pay|paid|pending).*(?:rs|inr|usd|\$|₹).*\d+/i,
     /due.*(?:date|on|by).*\d{1,2}[/-]\d{1,2}/i,
+    /payment.*due/i,
     /(?:electricity|water|gas|internet|mobile|credit card).*(?:bill|payment)/i,
     /(?:reminder|alert).*(?:payment|bill)/i,
+    /your payment is due/i,
+    /balance.*(?:rs|inr|usd|\$|₹)/i,
   ];
   
   if (billPatterns.some(pattern => pattern.test(body))) {
@@ -269,16 +330,29 @@ const classify = (body: string, time: number): string => {
   
   // Enhanced spam detection
   const spamPatterns = [
-    /\b(?:win|won|winner|congratulations|claim|prize|reward|free|offer|discount)\b/i,
+    /\b(?:win|won|winner|congratulations|claim|prize|reward)\b/i,
+    /\b(?:free|offer|discount|deal|sale)\b.*(?:click|limited|now)/i,
     /click.*(?:here|link|now)/i,
-    /(?:limited|hurry|act now|don't miss|last chance)/i,
+    /(?:limited time|hurry|act now|don't miss|last chance)/i,
     /(?:lottery|jackpot|cash prize)/i,
     /(?:unsubscribe|stop|opt-out)/i,
-    /(?:viagra|casino|loan|debt)/i,
+    /(?:viagra|casino|loan approved|debt relief)/i,
   ];
   
   if (spamPatterns.some(pattern => pattern.test(body))) {
     return 'spam';
+  }
+  
+  // Transaction notifications (not bills, just info)
+  const transactionPatterns = [
+    /transaction.*(?:cvs|pharmacy|walmart|target|amazon)/i,
+    /debit card transaction/i,
+    /(?:spent|purchased|charged).*at/i,
+    /external transfer/i,
+  ];
+  
+  if (transactionPatterns.some(pattern => pattern.test(body))) {
+    return 'social'; // Informational, not actionable
   }
   
   // Social/promotional patterns
@@ -287,14 +361,15 @@ const classify = (body: string, time: number): string => {
     /(?:liked|commented|shared|mentioned|tagged)/i,
     /(?:friend request|follow|follower)/i,
     /(?:notification|alert).*(?:social|post|message)/i,
+    /polling|survey|questionnaire/i,
   ];
   
   if (socialPatterns.some(pattern => pattern.test(body))) {
     return 'social';
   }
   
-  // Default to social for unclassified messages
-  return 'social';
+  // Default to other for unclassified messages
+  return 'other';
 };
 
 // Alternative function for extremely large files (>100MB)

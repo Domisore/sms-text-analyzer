@@ -73,6 +73,10 @@ export const ImportInstructionsModal: React.FC<ImportInstructionsModalProps> = (
                 </View>
                 <View style={styles.subStep}>
                   <MaterialCommunityIcons name="circle-small" size={20} color="#9CA3AF" />
+                  <Text style={styles.subStepText}>Tap "Backup Settings" → Enable "Within date range"</Text>
+                </View>
+                <View style={styles.subStep}>
+                  <MaterialCommunityIcons name="circle-small" size={20} color="#9CA3AF" />
                   <Text style={styles.subStepText}>Choose backup location (e.g., Downloads folder)</Text>
                 </View>
                 <View style={styles.subStep}>
@@ -80,10 +84,21 @@ export const ImportInstructionsModal: React.FC<ImportInstructionsModalProps> = (
                   <Text style={styles.subStepText}>Tap "Backup Now" and wait for completion</Text>
                 </View>
               </View>
+              <View style={styles.warningBox}>
+                <MaterialCommunityIcons name="alert-circle" size={18} color="#EF4444" />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.warningText, { color: '#EF4444', fontWeight: '700' }]}>
+                    ⚠️ IMPORTANT: Set Date Range to 3 Months or Less!
+                  </Text>
+                  <Text style={[styles.warningText, { color: '#EF4444', marginTop: 4 }]}>
+                    Backing up all messages creates files too large for mobile processing (100MB+). Use "Within date range" and select no more than 3 months at a time.
+                  </Text>
+                </View>
+              </View>
               <View style={styles.tipBox}>
                 <MaterialCommunityIcons name="lightbulb-outline" size={16} color="#F59E0B" />
                 <Text style={styles.tipText}>
-                  Tip: The backup file will be named something like "sms-20250109.xml"
+                  Tip: The backup file will be named something like "sms-20250109.xml". Files under 50MB import fastest.
                 </Text>
               </View>
             </View>
@@ -134,8 +149,12 @@ export const ImportInstructionsModal: React.FC<ImportInstructionsModalProps> = (
                   <Text style={styles.categoryText}>Expired OTPs</Text>
                 </View>
                 <View style={styles.categoryItem}>
+                  <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#DC2626" />
+                  <Text style={styles.categoryText}>Overdue Payments</Text>
+                </View>
+                <View style={styles.categoryItem}>
                   <MaterialCommunityIcons name="calendar-clock" size={20} color="#F59E0B" />
-                  <Text style={styles.categoryText}>Upcoming Bills</Text>
+                  <Text style={styles.categoryText}>Pending Bills</Text>
                 </View>
                 <View style={styles.categoryItem}>
                   <MaterialCommunityIcons name="shield-alert-outline" size={20} color="#8B5CF6" />
@@ -144,6 +163,10 @@ export const ImportInstructionsModal: React.FC<ImportInstructionsModalProps> = (
                 <View style={styles.categoryItem}>
                   <MaterialCommunityIcons name="account-group-outline" size={20} color="#10B981" />
                   <Text style={styles.categoryText}>Social Updates</Text>
+                </View>
+                <View style={styles.categoryItem}>
+                  <MaterialCommunityIcons name="message-outline" size={20} color="#6B7280" />
+                  <Text style={styles.categoryText}>Other Messages</Text>
                 </View>
               </View>
             </View>

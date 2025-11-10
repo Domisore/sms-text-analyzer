@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Modal, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import * as SQLite from 'expo-sqlite';
+import { db } from './database';
 
 interface StatisticsModalProps {
   visible: boolean;
@@ -26,9 +26,8 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ visible, onClo
   }, [visible]);
 
   const loadStatistics = () => {
-    const db = SQLite.openDatabaseSync('textile.db');
-    
-    const total = (db.getFirstSync(`SELECT COUNT(*) as count FROM sms;`) as any)?.count || 0;
+    try {
+      const total = (db.getFirstSync(`SELECT COUNT(*) as count FROM sms;`) as any)?.count || 0;
     const expired = (db.getFirstSync(`SELECT COUNT(*) as count FROM sms WHERE category = 'expired';`) as any)?.count || 0;
     const upcoming = (db.getFirstSync(`SELECT COUNT(*) as count FROM sms WHERE category = 'upcoming';`) as any)?.count || 0;
     const spam = (db.getFirstSync(`SELECT COUNT(*) as count FROM sms WHERE category = 'spam';`) as any)?.count || 0;
@@ -46,15 +45,27 @@ export const StatisticsModal: React.FC<StatisticsModalProps> = ({ visible, onClo
       ? new Date(mostRecent.latest).toLocaleDateString()
       : 'No messages yet';
 
-    setStats({
-      total,
-      expired,
-      upcoming,
-      spam,
-      social,
-      topSenders,
-      recentImport,
-    });
+      setStats({
+        total,
+        expired,
+        upcoming,
+        spam,
+        social,
+        topSenders,
+        recentImport,
+      });
+    } catch (error) {
+      console.error('[Statistics] Error loading statistics:', error);
+      setStats({
+        total: 0,
+        expired: 0,
+        upcoming: 0,
+        spam: 0,
+        social: 0,
+        topSenders: [],
+        recentImport: 'Error loading data',
+      });
+    }
   };
 
   return (

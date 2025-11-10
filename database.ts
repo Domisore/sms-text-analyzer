@@ -13,7 +13,8 @@ export const initializeDatabase = () => {
       time INTEGER,
       thread_id TEXT,
       category TEXT,
-      notified INTEGER DEFAULT 0
+      notified INTEGER DEFAULT 0,
+      UNIQUE(sender, body, time)
     );
   `);
   
@@ -22,6 +23,51 @@ export const initializeDatabase = () => {
     db.execSync(`ALTER TABLE sms ADD COLUMN notified INTEGER DEFAULT 0;`);
   } catch (e) {
     // Column already exists, ignore error
+  }
+
+  // Migration: Add unique constraint to prevent duplicates
+  // Check if the constraint already exists by trying to get table info
+  try {
+    const tableInfo = db.getAllSync(`PRAGMA table_info(sms);`) as any[];
+    const hasUniqueConstraint = db.getAllSync(
+      `SELECT sql FROM sqlite_master WHERE type='table' AND name='sms';`
+    ) as any[];
+    
+    const tableSql = hasUniqueConstraint[0]?.sql || '';
+    
+    // If the table doesn't have UNIQUE constraint, recreate it
+    if (!tableSql.includes('UNIQUE')) {
+      console.log('[TextileSMS] Migrating database to add unique constraint...');
+      
+      // Create new table with unique constraint
+      db.execSync(`
+        CREATE TABLE IF NOT EXISTS sms_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          body TEXT,
+          sender TEXT,
+          time INTEGER,
+          thread_id TEXT,
+          category TEXT,
+          notified INTEGER DEFAULT 0,
+          UNIQUE(sender, body, time)
+        );
+      `);
+      
+      // Copy data, removing duplicates
+      db.execSync(`
+        INSERT OR IGNORE INTO sms_new (id, body, sender, time, thread_id, category, notified)
+        SELECT id, body, sender, time, thread_id, category, notified FROM sms;
+      `);
+      
+      // Drop old table and rename new one
+      db.execSync(`DROP TABLE sms;`);
+      db.execSync(`ALTER TABLE sms_new RENAME TO sms;`);
+      
+      console.log('[TextileSMS] Database migration complete - duplicates removed');
+    }
+  } catch (e) {
+    // Migration already done or error occurred, continue
+    console.log('[TextileSMS] Unique constraint migration skipped or already applied');
   }
 
   // Bill tracking table

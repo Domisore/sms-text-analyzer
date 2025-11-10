@@ -45,13 +45,14 @@ export const importLargeFileInChunks = async (
     const fileSizeMB = fileInfo.size / (1024 * 1024);
     logger.info(`File size: ${fileSizeMB.toFixed(2)}MB`);
 
-    // Android heap limit is ~256MB, file needs 4x memory to process
-    // So max file size is 256MB / 4 = 64MB, but use 50MB to be safe
-    if (fileSizeMB > 50) {
+    // With largeHeap enabled, we have 512MB available
+    // File needs 4x memory to process, so max is 512MB / 4 = 128MB
+    // Use 100MB to be safe
+    if (fileSizeMB > 100) {
       Alert.alert(
         'File Too Large for Chunked Import',
-        `This file is ${fileSizeMB.toFixed(0)}MB, which is too large to process on mobile.\n\n` +
-        `Maximum file size: 50MB\n\n` +
+        `This file is ${fileSizeMB.toFixed(0)}MB, which is too large to process in chunks.\n\n` +
+        `Maximum file size: 100MB\n\n` +
         `Please use:\n` +
         `• Truncate to Recent Messages (recommended)\n` +
         `• Use a computer to reduce file size\n` +
@@ -108,6 +109,10 @@ export const importLargeFileInChunks = async (
       stats.failedMessages += chunkResult.failed;
       stats.processedMessages = i + chunk.length;
 
+      // Track duplicates
+      if (!stats.duplicates) stats.duplicates = 0;
+      stats.duplicates += chunkResult.duplicates;
+
       // Small delay to prevent UI freezing
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
@@ -115,12 +120,16 @@ export const importLargeFileInChunks = async (
     onProgress?.('Import complete!', 100, stats);
     logger.info('Chunked import completed', stats);
 
-    Alert.alert(
-      'Import Complete',
-      `Successfully imported ${stats.importedMessages} messages\n` +
+    const message = stats.duplicates && stats.duplicates > 0
+      ? `Successfully imported ${stats.importedMessages} new messages\n` +
+        `Duplicates skipped: ${stats.duplicates}\n` +
         `Failed: ${stats.failedMessages}\n` +
         `Processed in ${stats.totalChunks} chunks`
-    );
+      : `Successfully imported ${stats.importedMessages} messages\n` +
+        `Failed: ${stats.failedMessages}\n` +
+        `Processed in ${stats.totalChunks} chunks`;
+
+    Alert.alert('Import Complete', message);
 
     return stats;
   } catch (error) {
@@ -148,12 +157,12 @@ export const splitLargeFile = async (
 
     const fileSizeMB = fileInfo.size / (1024 * 1024);
     
-    // If file is too large, don't try to read it
-    if (fileSizeMB > 50) {
+    // With largeHeap, we can handle up to 100MB
+    if (fileSizeMB > 100) {
       Alert.alert(
         'File Too Large to Split',
         `This file is ${fileSizeMB.toFixed(0)}MB, which is too large to process on mobile.\n\n` +
-        `Maximum file size: 50MB\n\n` +
+        `Maximum file size: 100MB\n\n` +
         `Recommendation:\n` +
         `1. Use "Truncate" to keep only recent messages\n` +
         `2. Or use a computer to manually split the file`,
@@ -222,30 +231,31 @@ export const truncateFile = async (
 
     const fileSizeMB = fileInfo.size / (1024 * 1024);
     
-    // If file is too large (>50MB), don't even try to read it
-    // 50MB file needs ~200MB memory which is close to Android's 256MB limit
-    if (fileSizeMB > 50) {
+    // If file is too large (>100MB), don't even try to read it
+    // With largeHeap enabled, we have 512MB available
+    // 100MB file needs ~400MB memory which is within our limit
+    if (fileSizeMB > 100) {
       Alert.alert(
         'File Too Large to Truncate',
         `This file is ${fileSizeMB.toFixed(0)}MB, which is too large to process on mobile.\n\n` +
-        `Mobile devices have limited memory (256MB). Your file needs ${(fileSizeMB * 4).toFixed(0)}MB to process.\n\n` +
+        `Mobile devices have limited memory (512MB with large heap). Your file needs ${(fileSizeMB * 4).toFixed(0)}MB to process.\n\n` +
         `Recommendation:\n` +
         `1. Use a computer to open the XML file\n` +
         `2. Use a text editor (VS Code, Notepad++)\n` +
         `3. Keep only last 5,000-10,000 messages\n` +
-        `4. Save as smaller file (under 20MB)\n` +
+        `4. Save as smaller file (under 50MB)\n` +
         `5. Transfer back to phone and import`,
         [{ text: 'OK' }]
       );
       throw new Error('File too large for mobile processing');
     }
 
-    // For files 30-50MB, warn user
-    if (fileSizeMB > 30) {
+    // For files 65-100MB, warn user
+    if (fileSizeMB > 65) {
       return new Promise((resolve, reject) => {
         Alert.alert(
           'Large File Warning',
-          `This file is ${fileSizeMB.toFixed(0)}MB and needs ${(fileSizeMB * 4).toFixed(0)}MB memory to process.\n\nThis may fail. Recommend using a computer instead.\n\nContinue anyway?`,
+          `This file is ${fileSizeMB.toFixed(0)}MB and needs ${(fileSizeMB * 4).toFixed(0)}MB memory to process.\n\nWith large heap enabled, this should work but may take time.\n\nContinue?`,
           [
             { text: 'Cancel', style: 'cancel', onPress: () => reject(new Error('User cancelled')) },
             { text: 'Try Anyway', onPress: () => resolve(undefined) }
@@ -266,12 +276,13 @@ export const truncateFile = async (
     
     // Show helpful error message
     Alert.alert(
-      'Truncation Failed',
+      'Processing Failed',
       `Unable to process this file due to its size.\n\n` +
-      `Options:\n` +
-      `1. Use "Split into Smaller Files" instead\n` +
-      `2. Use a computer to manually reduce file size\n` +
-      `3. Export a smaller date range from SMS Backup & Restore app`,
+      `Recommendations:\n` +
+      `1. Go back and try "Split into Smaller Files" instead\n` +
+      `2. Use a computer with a text editor to manually reduce file size\n` +
+      `3. Export a smaller date range from SMS Backup & Restore app\n\n` +
+      `Files over 100MB are too large for mobile processing.`,
       [{ text: 'OK' }]
     );
     
@@ -334,8 +345,9 @@ const extractSMSMessages = (xmlContent: string): string[] => {
  */
 const processChunk = async (
   smsMessages: string[]
-): Promise<{ imported: number; failed: number }> => {
+): Promise<{ imported: number; failed: number; duplicates: number }> => {
   let imported = 0;
+  let duplicates = 0;
   let failed = 0;
 
   const parser = new XMLParser({
@@ -359,12 +371,21 @@ const processChunk = async (
         const thread_id = msg['@_thread_id'] || null;
         const category = classify(body, time);
 
-        db.runSync(
-          `INSERT OR REPLACE INTO sms (body, sender, time, thread_id, category) VALUES (?, ?, ?, ?, ?);`,
-          [body, sender, time, thread_id, category]
+        // Check if message already exists
+        const existing = db.getFirstSync(
+          `SELECT id FROM sms WHERE sender = ? AND body = ? AND time = ?;`,
+          [sender, body, time]
         );
 
-        imported++;
+        if (existing) {
+          duplicates++;
+        } else {
+          db.runSync(
+            `INSERT INTO sms (body, sender, time, thread_id, category) VALUES (?, ?, ?, ?, ?);`,
+            [body, sender, time, thread_id, category]
+          );
+          imported++;
+        }
       } catch (error) {
         failed++;
         logger.error('Failed to process message', error);
@@ -372,7 +393,7 @@ const processChunk = async (
     });
   });
 
-  return { imported, failed };
+  return { imported, failed, duplicates };
 };
 
 /**
@@ -393,58 +414,136 @@ const classify = (body: string, time: number): string => {
   const bodyLower = body.toLowerCase();
   const ageMinutes = (Date.now() - time) / 60000;
 
-  // OTP detection
+  // Check for overdue payments/bills first (highest priority)
+  const overduePatterns = [
+    /overdue/i,
+    /past due/i,
+    /payment.*overdue/i,
+    /overdrawn/i,
+    /account.*overdrawn/i,
+    /balance.*below/i,
+    /negative balance/i,
+    /immediate.*payment/i,
+    /urgent.*payment/i,
+  ];
+
+  if (overduePatterns.some((pattern) => pattern.test(body))) {
+    return 'overdue';
+  }
+
+  // Enhanced OTP detection - check if expired (>10 minutes old)
   const otpPatterns = [
     /\b\d{4,8}\b.*(?:otp|code|verification|verify|authenticate)/i,
     /(?:otp|code|verification|verify|authenticate).*\b\d{4,8}\b/i,
     /your.*(?:code|otp).*is.*\d{4,8}/i,
     /\d{4,8}.*is your.*(?:code|otp)/i,
+    /verification code/i,
+    /security code/i,
   ];
 
   if (otpPatterns.some((pattern) => pattern.test(body)) && ageMinutes > 10) {
     return 'expired';
   }
 
-  // Bill detection
+  // Medical/Health detection (high priority - before bills)
+  const medicalPatterns = [
+    /prescription/i,
+    /pharmacy/i,
+    /cvs.*pharmacy/i,
+    /walgreens/i,
+    /rite aid/i,
+    /medication/i,
+    /refill/i,
+    /doctor/i,
+    /appointment.*(?:doctor|clinic|hospital)/i,
+    /medical/i,
+    /health/i,
+    /lab.*results/i,
+    /test.*results/i,
+    /vaccine/i,
+    /vaccination/i,
+    /flu shot/i,
+  ];
+  
+  if (medicalPatterns.some((pattern) => pattern.test(body))) {
+    return 'medical';
+  }
+
+  // Delivery/Shipping detection
+  const deliveryPatterns = [
+    /(?:package|parcel|shipment).*(?:delivered|arriving|out for delivery)/i,
+    /(?:amazon|ups|fedex|usps|dhl).*(?:delivered|delivery|shipped|tracking)/i,
+    /tracking.*number/i,
+    /out for delivery/i,
+    /delivered.*to/i,
+    /shipment.*(?:arriving|delivered)/i,
+    /order.*(?:shipped|delivered)/i,
+    /delivery.*(?:scheduled|expected|arriving)/i,
+    /your.*(?:package|order).*(?:has been|is)/i,
+  ];
+  
+  if (deliveryPatterns.some((pattern) => pattern.test(body))) {
+    return 'deliveries';
+  }
+
+  // Enhanced bill/payment detection (pending payments)
   const billPatterns = [
-    /(?:bill|payment|invoice|due|amount|balance|outstanding)/i,
+    /(?:bill|payment|invoice|due|amount).*(?:rs|inr|usd|\$|₹).*\d+/i,
     /(?:pay|paid|pending).*(?:rs|inr|usd|\$|₹).*\d+/i,
     /due.*(?:date|on|by).*\d{1,2}[/-]\d{1,2}/i,
+    /payment.*due/i,
     /(?:electricity|water|gas|internet|mobile|credit card).*(?:bill|payment)/i,
     /(?:reminder|alert).*(?:payment|bill)/i,
+    /your payment is due/i,
+    /balance.*(?:rs|inr|usd|\$|₹)/i,
   ];
 
   if (billPatterns.some((pattern) => pattern.test(body))) {
     return 'upcoming';
   }
 
-  // Spam detection
+  // Enhanced spam detection
   const spamPatterns = [
-    /\b(?:win|won|winner|congratulations|claim|prize|reward|free|offer|discount)\b/i,
+    /\b(?:win|won|winner|congratulations|claim|prize|reward)\b/i,
+    /\b(?:free|offer|discount|deal|sale)\b.*(?:click|limited|now)/i,
     /click.*(?:here|link|now)/i,
-    /(?:limited|hurry|act now|don't miss|last chance)/i,
+    /(?:limited time|hurry|act now|don't miss|last chance)/i,
     /(?:lottery|jackpot|cash prize)/i,
     /(?:unsubscribe|stop|opt-out)/i,
-    /(?:viagra|casino|loan|debt)/i,
+    /(?:viagra|casino|loan approved|debt relief)/i,
   ];
 
   if (spamPatterns.some((pattern) => pattern.test(body))) {
     return 'spam';
   }
 
-  // Social patterns
+  // Transaction notifications (not bills, just info)
+  const transactionPatterns = [
+    /transaction.*(?:cvs|pharmacy|walmart|target|amazon)/i,
+    /debit card transaction/i,
+    /(?:spent|purchased|charged).*at/i,
+    /external transfer/i,
+  ];
+
+  if (transactionPatterns.some((pattern) => pattern.test(body))) {
+    return 'social'; // Informational, not actionable
+  }
+
+  // Social/promotional patterns
   const socialPatterns = [
     /(?:facebook|twitter|instagram|whatsapp|telegram|linkedin)/i,
     /(?:liked|commented|shared|mentioned|tagged)/i,
     /(?:friend request|follow|follower)/i,
     /(?:notification|alert).*(?:social|post|message)/i,
+    /polling|survey|questionnaire/i,
   ];
 
   if (socialPatterns.some((pattern) => pattern.test(body))) {
     return 'social';
   }
 
-  return 'social';
+  // Default to other for unclassified messages
+  return 'other';
 };
 
 /**

@@ -43,10 +43,11 @@ export const BillTrackerModal: React.FC<BillTrackerModalProps> = ({
   }, [visible, filter]);
 
   const loadBills = () => {
-    // Get bills from upcoming category
-    const upcomingMessages = db.getAllSync(
-      `SELECT * FROM sms WHERE category = 'upcoming' ORDER BY time DESC LIMIT 50;`
-    ) as any[];
+    try {
+      // Get bills from upcoming category
+      const upcomingMessages = db.getAllSync(
+        `SELECT * FROM sms WHERE category = 'upcoming' ORDER BY time DESC LIMIT 50;`
+      ) as any[];
 
     // Extract bill information
     const extractedBills = upcomingMessages.map((msg) => {
@@ -65,13 +66,17 @@ export const BillTrackerModal: React.FC<BillTrackerModalProps> = ({
       };
     });
 
-    // Filter based on selection
-    const filtered =
-      filter === 'all'
-        ? extractedBills
-        : extractedBills.filter((b) => b.status === filter);
+      // Filter based on selection
+      const filtered =
+        filter === 'all'
+          ? extractedBills
+          : extractedBills.filter((b) => b.status === filter);
 
-    setBills(filtered);
+      setBills(filtered);
+    } catch (error) {
+      console.error('[BillTracker] Error loading bills:', error);
+      setBills([]);
+    }
   };
 
   const extractAmount = (body: string): number => {
