@@ -45,15 +45,17 @@ export const importLargeFileInChunks = async (
     const fileSizeMB = fileInfo.size / (1024 * 1024);
     logger.info(`File size: ${fileSizeMB.toFixed(2)}MB`);
 
-    // If file is too large, don't try to read it
-    if (fileSizeMB > 100) {
+    // Android heap limit is ~256MB, file needs 4x memory to process
+    // So max file size is 256MB / 4 = 64MB, but use 50MB to be safe
+    if (fileSizeMB > 50) {
       Alert.alert(
         'File Too Large for Chunked Import',
-        `This file is ${fileSizeMB.toFixed(0)}MB, which is too large to process in chunks.\n\n` +
-        `Please use one of these options instead:\n` +
-        `• Split into Smaller Files\n` +
-        `• Truncate to Recent Messages\n` +
-        `• Use a computer to reduce file size`,
+        `This file is ${fileSizeMB.toFixed(0)}MB, which is too large to process on mobile.\n\n` +
+        `Maximum file size: 50MB\n\n` +
+        `Please use:\n` +
+        `• Truncate to Recent Messages (recommended)\n` +
+        `• Use a computer to reduce file size\n` +
+        `• Export smaller date range from backup app`,
         [{ text: 'OK' }]
       );
       throw new Error('File too large for chunked import');
@@ -147,14 +149,14 @@ export const splitLargeFile = async (
     const fileSizeMB = fileInfo.size / (1024 * 1024);
     
     // If file is too large, don't try to read it
-    if (fileSizeMB > 100) {
+    if (fileSizeMB > 50) {
       Alert.alert(
         'File Too Large to Split',
         `This file is ${fileSizeMB.toFixed(0)}MB, which is too large to process on mobile.\n\n` +
+        `Maximum file size: 50MB\n\n` +
         `Recommendation:\n` +
-        `1. Use a computer to open the XML file\n` +
-        `2. Manually split it into smaller files\n` +
-        `3. Or use "Truncate" to keep only recent messages`,
+        `1. Use "Truncate" to keep only recent messages\n` +
+        `2. Or use a computer to manually split the file`,
         [{ text: 'OK' }]
       );
       throw new Error('File too large to split on mobile');
@@ -220,65 +222,42 @@ export const truncateFile = async (
 
     const fileSizeMB = fileInfo.size / (1024 * 1024);
     
-    // If file is too large (>200MB), don't even try to read it
-    if (fileSizeMB > 200) {
+    // If file is too large (>100MB), don't even try to read it
+    if (fileSizeMB > 100) {
       Alert.alert(
         'File Too Large',
         `This file is ${fileSizeMB.toFixed(0)}MB, which is too large to process on mobile.\n\n` +
         `Recommendation:\n` +
         `1. Use a computer to open the XML file\n` +
         `2. Use a text editor to keep only recent messages\n` +
-        `3. Save as a smaller file\n` +
+        `3. Save as a smaller file (under 50MB)\n` +
         `4. Transfer back to phone and import`,
         [{ text: 'OK' }]
       );
       throw new Error('File too large for mobile processing');
     }
 
-    // For files 100-200MB, warn user
-    if (fileSizeMB > 100) {
-      Alert.alert(
-        'Large File Warning',
-        `This file is ${fileSizeMB.toFixed(0)}MB. Processing may take several minutes and could fail due to memory constraints.\n\nContinue?`,
-        [
-          { text: 'Cancel', style: 'cancel', onPress: () => { throw new Error('User cancelled'); } },
-          { text: 'Continue', onPress: () => {} }
-        ]
-      );
+    // For files 50-100MB, warn user
+    if (fileSizeMB > 50) {
+      return new Promise((resolve, reject) => {
+        Alert.alert(
+          'Large File Warning',
+          `This file is ${fileSizeMB.toFixed(0)}MB. Processing may fail due to memory constraints.\n\nRecommend using a computer instead.\n\nContinue anyway?`,
+          [
+            { text: 'Cancel', style: 'cancel', onPress: () => reject(new Error('User cancelled')) },
+            { text: 'Try Anyway', onPress: () => resolve(undefined) }
+          ]
+        );
+      }).then(async () => {
+        // Continue with truncation
+        const fileContent = await FileSystem.readAsStringAsync(fileUri);
+        return processTruncation(fileContent, fileUri, maxMessages);
+      });
     }
 
-    // Try to read and process
+    // Try to read and process (for files <50MB)
     const fileContent = await FileSystem.readAsStringAsync(fileUri);
-    const smsMatches = extractSMSMessages(fileContent);
-    const totalMessages = smsMatches.length;
-
-    logger.info(`Found ${totalMessages} messages in file`);
-
-    if (totalMessages <= maxMessages) {
-      Alert.alert('No Truncation Needed', `File has ${totalMessages} messages, which is within the limit.`);
-      return fileUri;
-    }
-
-    // Keep most recent messages
-    const recentMessages = smsMatches.slice(-maxMessages);
-
-    // Create new XML
-    const truncatedXML = createXMLFromMessages(recentMessages);
-
-    // Save truncated file
-    const fileName = `sms_backup_truncated_${maxMessages}.xml`;
-    const outputUri = `${FileSystem.documentDirectory}${fileName}`;
-
-    await FileSystem.writeAsStringAsync(outputUri, truncatedXML);
-
-    Alert.alert(
-      'File Truncated',
-      `Kept most recent ${maxMessages} messages out of ${totalMessages}.\n\n` +
-        `Truncated file saved. You can now import it.`
-    );
-
-    logger.info(`Truncated file created: ${fileName}`);
-    return outputUri;
+    return await processTruncation(fileContent, fileUri, maxMessages);
   } catch (error) {
     logger.error('File truncation failed', error);
     
@@ -295,6 +274,46 @@ export const truncateFile = async (
     
     throw error;
   }
+};
+
+/**
+ * Process truncation (extracted for reuse)
+ */
+const processTruncation = async (
+  fileContent: string,
+  fileUri: string,
+  maxMessages: number
+): Promise<string> => {
+  const smsMatches = extractSMSMessages(fileContent);
+  const totalMessages = smsMatches.length;
+
+  logger.info(`Found ${totalMessages} messages in file`);
+
+  if (totalMessages <= maxMessages) {
+    Alert.alert('No Truncation Needed', `File has ${totalMessages} messages, which is within the limit.`);
+    return fileUri;
+  }
+
+  // Keep most recent messages
+  const recentMessages = smsMatches.slice(-maxMessages);
+
+  // Create new XML
+  const truncatedXML = createXMLFromMessages(recentMessages);
+
+  // Save truncated file
+  const fileName = `sms_backup_truncated_${maxMessages}.xml`;
+  const outputUri = `${FileSystem.documentDirectory}${fileName}`;
+
+  await FileSystem.writeAsStringAsync(outputUri, truncatedXML);
+
+  Alert.alert(
+    'File Truncated',
+    `Kept most recent ${maxMessages} messages out of ${totalMessages}.\n\n` +
+      `Truncated file saved. You can now import it.`
+  );
+
+  logger.info(`Truncated file created: ${fileName}`);
+  return outputUri;
 };
 
 /**
