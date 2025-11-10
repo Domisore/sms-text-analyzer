@@ -222,27 +222,30 @@ export const truncateFile = async (
 
     const fileSizeMB = fileInfo.size / (1024 * 1024);
     
-    // If file is too large (>100MB), don't even try to read it
-    if (fileSizeMB > 100) {
+    // If file is too large (>50MB), don't even try to read it
+    // 50MB file needs ~200MB memory which is close to Android's 256MB limit
+    if (fileSizeMB > 50) {
       Alert.alert(
-        'File Too Large',
+        'File Too Large to Truncate',
         `This file is ${fileSizeMB.toFixed(0)}MB, which is too large to process on mobile.\n\n` +
+        `Mobile devices have limited memory (256MB). Your file needs ${(fileSizeMB * 4).toFixed(0)}MB to process.\n\n` +
         `Recommendation:\n` +
         `1. Use a computer to open the XML file\n` +
-        `2. Use a text editor to keep only recent messages\n` +
-        `3. Save as a smaller file (under 50MB)\n` +
-        `4. Transfer back to phone and import`,
+        `2. Use a text editor (VS Code, Notepad++)\n` +
+        `3. Keep only last 5,000-10,000 messages\n` +
+        `4. Save as smaller file (under 20MB)\n` +
+        `5. Transfer back to phone and import`,
         [{ text: 'OK' }]
       );
       throw new Error('File too large for mobile processing');
     }
 
-    // For files 50-100MB, warn user
-    if (fileSizeMB > 50) {
+    // For files 30-50MB, warn user
+    if (fileSizeMB > 30) {
       return new Promise((resolve, reject) => {
         Alert.alert(
           'Large File Warning',
-          `This file is ${fileSizeMB.toFixed(0)}MB. Processing may fail due to memory constraints.\n\nRecommend using a computer instead.\n\nContinue anyway?`,
+          `This file is ${fileSizeMB.toFixed(0)}MB and needs ${(fileSizeMB * 4).toFixed(0)}MB memory to process.\n\nThis may fail. Recommend using a computer instead.\n\nContinue anyway?`,
           [
             { text: 'Cancel', style: 'cancel', onPress: () => reject(new Error('User cancelled')) },
             { text: 'Try Anyway', onPress: () => resolve(undefined) }
@@ -255,7 +258,7 @@ export const truncateFile = async (
       });
     }
 
-    // Try to read and process (for files <50MB)
+    // Try to read and process (for files <30MB - safe zone)
     const fileContent = await FileSystem.readAsStringAsync(fileUri);
     return await processTruncation(fileContent, fileUri, maxMessages);
   } catch (error) {
