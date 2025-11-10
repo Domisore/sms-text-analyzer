@@ -2,15 +2,33 @@
   "expo": {
     "jsEngine": "hermes",
     "name": "TextBud",
-    "slug": "textbud",
+    "slug": "textile",
     "version": "2.4.1",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
+    "icon": "./assets/icon.png",
     "splash": {
-      "backgroundColor": "#111827"
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFFFF"
     },
     "android": {
       "package": "com.textbud.app",
+      "icon": "./assets/appicons/playstore.png",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/appicons/playstore.png",
+        "backgroundColor": "#111827"
+      },
+      "splash": {
+        "image": "./assets/splash.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#FFFFFF",
+        "mdpi": "./assets/splash.png",
+        "hdpi": "./assets/splash.png",
+        "xhdpi": "./assets/splash.png",
+        "xxhdpi": "./assets/splash.png",
+        "xxxhdpi": "./assets/splash.png"
+      },
       "permissions": [
         "android.permission.READ_SMS",
         "android.permission.RECEIVE_SMS",
@@ -22,7 +40,14 @@
       ]
     },
     "ios": {
-      "bundleIdentifier": "com.textbud.app"
+      "bundleIdentifier": "com.textbud.app",
+      "icon": "./assets/appicons/appstore.png",
+      "supportsTablet": true,
+      "splash": {
+        "image": "./assets/splash.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#FFFFFF"
+      }
     },
     "plugins": [
       "expo-document-picker",
